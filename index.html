@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Gravity Simulation v7.7 - With Sound</title>
+    <!-- Link to external CSS file -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <button id="toggleControls" title="Show/Hide Menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+
+    <div id="controls">
+        <div id="controls-header">
+            <h2>Gravity</h2>
+            <div id="fpsCounter" style="font-size: 10px; opacity: 0.6;">FPS: 0</div>
+        </div>
+
+        <div id="controls-content">
+            <!-- SECTION: CREATION -->
+            <div class="control-section">
+                <div class="section-title">✨ Creation</div>
+                <div class="control-group">
+                    <span class="label-like">Mode:</span>
+                    <div>
+                        <label><input type="radio" name="mode" value="planet" checked> Planet</label>
+                        <label><input type="radio" name="mode" value="star"> Star</label>
+                        <label><input type="radio" name="mode" value="generator"> Gen</label>
+                        <label><input type="radio" name="mode" value="black-hole"> Black Hole</label>
+                        <label><input type="radio" name="mode" value="white-hole"> White Hole</label>
+                    </div>
+                </div>
+
+                <div id="starOptions" class="control-group hidden">
+                    <label for="starMassRange">Star Mass:</label>
+                    <div class="slider-container">
+                        <input type="range" id="starMassRange" name="starMass" min="2000" max="100000" step="1000"
+                            value="20000">
+                    </div>
+                    <span id="starMassValue" class="value-display">20000</span>
+                </div>
+
+                <div id="generatorOptions" class="control-group hidden">
+                    <label for="spawnIntervalRange">Interval (s):</label>
+                    <div class="slider-container">
+                        <input type="range" id="spawnIntervalRange" min="0.5" max="5.0" step="0.5" value="2.0">
+                    </div>
+                    <span id="spawnIntervalValue" class="value-display">2.0</span>
+                    <label style="margin-top: 5px; display: flex; align-items: center; gap: 5px;">
+                        <input type="checkbox" id="stableOrbitCheckbox"> Stable orbits
+                    </label>
+                    <button id="clearGeneratorsButton"
+                        style="width: 100%; margin-top: 5px; background: rgba(255,50,50,0.2); border: 1px solid rgba(255,50,50,0.3);">Clear
+                        Generators</button>
+                </div>
+            </div>
+
+            <!-- SECTION: SIMULATION -->
+            <div class="control-section">
+                <div class="section-title">⚙️ Simulation</div>
+                <div class="control-group">
+                    <label for="gConstantRange">G Constant:</label>
+                    <div class="slider-container">
+                        <input type="range" id="gConstantRange" min="100" max="10000" step="100" value="2000">
+                    </div>
+                    <span id="gConstantValue" class="value-display">2000</span>
+                </div>
+
+                <div class="control-group">
+                    <label for="debrisCountInput">Debris count:</label>
+                    <div class="number-input-container">
+                        <button class="number-input-button" id="debrisDecrement">-</button>
+                        <input type="number" id="debrisCountInput" min="0" max="100" step="10" value="50">
+                        <button class="number-input-button" id="debrisIncrement">+</button>
+                        <span style="font-size: 10px; margin-left: 10px; opacity: 0.5;">(limit)</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label><input type="checkbox" id="toggleContainment" checked> Containment Field</label>
+                </div>
+
+                <div class="control-group">
+                    <span class="label-like">Collision type:</span>
+                    <div>
+                        <label><input type="radio" name="collisionMode" value="explode" checked> Explosion</label>
+                        <label><input type="radio" name="collisionMode" value="merge"> Merging</label>
+                    </div>
+                </div>
+
+                <div class="control-group" style="flex-direction: row; gap: 10px;">
+                    <button id="pauseButton">Pause</button>
+                    <button id="resetButton">Reset</button>
+                </div>
+            </div>
+
+            <!-- SECTION: VISUALIZATION -->
+            <div class="control-section">
+                <div class="section-title">👁️ Visualization</div>
+                <div class="control-group">
+                    <label for="trailLengthRange">Trail length:</label>
+                    <div class="slider-container">
+                        <input type="range" id="trailLengthRange" min="0" max="100000" step="100" value="1000">
+                    </div>
+                    <span id="trailLengthValue" class="value-display">80</span>
+                </div>
+
+                <div class="control-group">
+                    <label><input type="checkbox" id="showForceVectors"> Force vectors</label>
+                    <label><input type="checkbox" id="showEnergyPrediction"> Orbit prediction</label>
+                    <label><input type="checkbox" id="showPrediction" checked> Launch preview</label>
+                    <label><input type="checkbox" id="showOngoingPrediction" checked> Future path</label>
+                    <label><input type="checkbox" id="showCollisionWarning" checked> Collision warning</label>
+                </div>
+
+                <div class="control-group">
+                    <label for="predictionTimeRange">Path time (s):</label>
+                    <div class="slider-container">
+                        <input type="range" id="predictionTimeRange" min="1" max="20" step="1" value="10">
+                    </div>
+                    <span id="predictionTimeValue" class="value-display">10</span>
+                </div>
+
+                <div class="control-group">
+                    <label><input type="checkbox" id="showInteractionRange"> Interaction range</label>
+                    <label><input type="checkbox" id="showBoundary" checked> Show world boundary</label>
+                    <label><input type="checkbox" id="showGrid" checked> Show grid</label>
+                </div>
+
+                <div class="control-group">
+                    <span class="label-like">Tracking:</span>
+                    <div style="flex-direction: column; align-items: flex-start;">
+                        <label><input type="checkbox" id="trackingModeCheckbox"> Enable tracking</label>
+                        <select id="trackedPlanetSelect" class="hidden"></select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION: AUDIO -->
+            <div class="control-section">
+                <div class="section-title">🔊 Audio</div>
+                <div class="control-group">
+                    <div style="gap: 15px; display: flex; flex-wrap: wrap;">
+                        <label><input type="checkbox" id="toggleMusic" checked> Music</label>
+                        <label><input type="checkbox" id="toggleSfx" checked> Effects</label>
+                        <label><input type="checkbox" id="toggleProximityHiss"> Proximity hiss</label>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label for="musicVolume">Music volume:</label>
+                    <input type="range" id="musicVolume" min="0" max="1" step="0.01" value="0.1">
+                </div>
+
+                <div class="control-group">
+                    <label for="sfxVolume">Effects volume:</label>
+                    <input type="range" id="sfxVolume" min="0" max="1" step="0.05" value="0.7">
+                </div>
+
+                <div class="control-group">
+                    <label for="zoomAttenuation">Fading (zoom):</label>
+                    <div class="slider-container">
+                        <input type="range" id="zoomAttenuation" min="0" max="2" step="0.1" value="0.5">
+                    </div>
+                    <span id="zoomAttenuationValue" class="value-display">0.5</span>
+                </div>
+            </div>
+
+            <div class="control-section" style="margin-top: 30px; opacity: 0.5;">
+                <div id="activeCounter" style="font-size: 11px;">Objects: 0</div>
+            </div>
+        </div>
+    </div>
+    <div id="score">Score: 0</div>
+    <div id="trackingInfo" class="hidden">
+        <h3>Tracked Planet</h3>
+        <p>ID: <span id="track-id">-</span></p>
+        <p>Speed: <span id="track-speed">-</span></p>
+        <p>Mass: <span id="track-mass">-</span></p>
+        <p>Vector VX: <span id="track-vx">-</span></p>
+        <p>Vector VY: <span id="track-vy">-</span></p>
+    </div>
+    <canvas id="simulationCanvas"></canvas>
+    <div id="info">Planets attract each other and collide. Hit the targets!</div>
+    <div id="speedLabel">Speed: 0.0</div>
+
+
+
+    <!-- Link to external JavaScript file -->
+    <script src="audio.js"></script>
+    <script src="simulation.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,552 @@
+/* Modern UI Style - Glassmorphism & Premium Look */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #050508;
+    /* Very dark navy/black */
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #e0e0e0;
+    overscroll-behavior: none;
+}
+
+canvas {
+    display: block;
+    touch-action: none;
+    background-color: #050508;
+}
+
+/* --- Control Panel --- */
+#controls {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: rgba(10, 10, 15, 0.8);
+    backdrop-filter: blur(30px) saturate(180%);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    padding: 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    color: #f0f0f0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    width: 320px;
+    height: 100vh;
+    box-shadow: 10px 0 50px rgba(0, 0, 0, 0.8);
+    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+}
+
+#controls.hidden-panel {
+    transform: translateX(-100%);
+}
+
+#toggleControls {
+    position: absolute;
+    top: 20px;
+    left: 340px; /* Positioned outside the panel when visible */
+    z-index: 101;
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: rgba(20, 20, 30, 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #eee;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    padding: 0;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+#controls.hidden-panel + #toggleControls,
+#toggleControls.on-hidden { /* We might need to adjust logic or just use a sibling selector if possible */
+    left: 20px;
+}
+
+/* Better way: put toggle inside a container or handle with JS if needed, but let's try CSS first. 
+   Wait, in HTML they are siblings. */
+#controls.hidden-panel ~ #toggleControls {
+    left: 20px;
+}
+
+#toggleControls:hover {
+    background: rgba(76, 175, 80, 0.2);
+    border-color: #4CAF50;
+    color: #4CAF50;
+    transform: scale(1.05) translateY(-2px);
+}
+
+#toggleControls:active {
+    transform: scale(0.95);
+}
+
+#controls-header {
+    padding: 24px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.05), transparent);
+}
+
+#controls-header h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, #4CAF50, #81C784);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
+}
+
+#controls-content {
+    padding: 10px 24px 30px 24px;
+    overflow-y: auto;
+    flex: 1;
+    scrollbar-width: none; /* Hide for clean look */
+}
+
+#controls-content::-webkit-scrollbar {
+    display: none;
+}
+
+.control-section {
+    margin-top: 20px;
+}
+
+.section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #666;
+    margin-bottom: 12px;
+    letter-spacing: 1.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-title::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.control-group>div {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+/* Section Headers */
+.label-like,
+label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #aaa;
+    font-weight: 600;
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* --- Custom Radio & Checkbox --- */
+input[type="radio"],
+input[type="checkbox"] {
+    appearance: none;
+    background-color: rgba(255, 255, 255, 0.1);
+    margin: 0;
+    font: inherit;
+    color: currentColor;
+    width: 1.15em;
+    height: 1.15em;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 0.15em;
+    display: grid;
+    place-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+input[type="radio"] {
+    border-radius: 50%;
+}
+
+input[type="radio"]::before {
+    content: "";
+    width: 0.65em;
+    height: 0.65em;
+    border-radius: 50%;
+    transform: scale(0);
+    transition: 120ms transform ease-in-out;
+    box-shadow: inset 1em 1em #4CAF50;
+}
+
+input[type="checkbox"]::before {
+    content: "";
+    width: 0.65em;
+    height: 0.65em;
+    transform: scale(0);
+    transition: 120ms transform ease-in-out;
+    box-shadow: inset 1em 1em #4CAF50;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+input[type="radio"]:checked::before,
+input[type="checkbox"]:checked::before {
+    transform: scale(1);
+}
+
+input[type="radio"]:checked,
+input[type="checkbox"]:checked {
+    border-color: #4CAF50;
+    background-color: rgba(76, 175, 80, 0.1);
+}
+
+label {
+    cursor: pointer;
+    font-size: 13px;
+    color: #ddd;
+    font-weight: 400;
+    text-transform: none;
+}
+
+/* --- Sliders --- */
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    background: transparent;
+    height: 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    margin: 5px 0;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    transition: background 0.2s;
+}
+
+input[type="range"]::-moz-range-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    transition: background 0.2s;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    height: 14px;
+    width: 14px;
+    border-radius: 50%;
+    background: #4CAF50;
+    margin-top: -5px;
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+    transition: transform 0.1s, background 0.2s;
+}
+
+input[type="range"]::-moz-range-thumb {
+    border: none;
+    height: 14px;
+    width: 14px;
+    border-radius: 50%;
+    background: #4CAF50;
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+    transition: transform 0.1s, background 0.2s;
+}
+
+input[type="range"]:hover::-webkit-slider-thumb {
+    transform: scale(1.1);
+    background: #66bb6a;
+}
+
+.slider-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.min-max-label {
+    font-size: 10px;
+    color: #777;
+    width: 25px;
+    text-align: center;
+}
+
+.value-display {
+    font-size: 12px;
+    font-weight: 600;
+    color: #4CAF50;
+    background: rgba(76, 175, 80, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    min-width: 30px;
+    text-align: center;
+    margin-left: auto;
+}
+
+/* --- Buttons --- */
+button {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    flex: 1;
+    font-family: inherit;
+}
+
+button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    filter: brightness(1.1);
+}
+
+button:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+#resetButton {
+    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+}
+
+#pauseButton.paused {
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+}
+
+/* --- Number Input --- */
+.number-input-container {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    padding: 2px;
+}
+
+.number-input-button {
+    background: transparent;
+    color: #aaa;
+    width: 24px;
+    height: 24px;
+    min-height: auto !important;
+    padding: 0;
+    box-shadow: none;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.number-input-button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    transform: none;
+    box-shadow: none;
+}
+
+input[type="number"] {
+    background: transparent;
+    -webkit-appearance: none;
+    appearance: none;
+    border: none;
+    color: white;
+    text-align: center;
+    width: 40px;
+    font-family: inherit;
+    font-size: 13px;
+    -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* --- Info & Score --- */
+#score {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    font-size: 42px;
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 4px 20px rgba(76, 175, 80, 0.4);
+    z-index: 5;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -1px;
+}
+
+#trackingInfo {
+    position: absolute;
+    top: 80px;
+    right: 24px;
+    background: rgba(15, 15, 25, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    padding: 16px 20px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #f0f0f0;
+    z-index: 5;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    min-width: 220px;
+}
+
+#trackingInfo h3 {
+    margin: 0 0 12px 0;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #4CAF50;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 6px;
+}
+
+#trackingInfo p {
+    margin: 6px 0;
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    color: #888;
+}
+
+#trackingInfo p span {
+    color: #4CAF50;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+#info {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+    background: rgba(20, 20, 30, 0.6);
+    padding: 10px 20px;
+    border-radius: 30px;
+    pointer-events: none;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    white-space: nowrap;
+}
+
+#speedLabel {
+    position: absolute;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    background: rgba(76, 175, 80, 0.8);
+    backdrop-filter: blur(4px);
+    padding: 6px 12px;
+    border-radius: 8px;
+    display: none;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 1000;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+select {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #eee;
+    padding: 10px;
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    width: 100%;
+    outline: none;
+    transition: all 0.3s ease;
+    margin-top: 8px;
+}
+
+select:focus {
+    border-color: #4CAF50;
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+}
+
+select option {
+    background-color: #1a1a20;
+    color: #ddd;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* --- Mobile Responsiveness --- */
+@media (max-width: 600px) {
+    #controls {
+        width: 100%;
+        height: 50vh;
+        top: auto;
+        bottom: 0;
+        border-right: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        transform: translateY(100%);
+    }
+
+    #controls.hidden-panel {
+        transform: translateY(0); /* Wait, the logic is inverted for mobile? No. */
+        transform: translateY(100%);
+    }
+
+    #controls:not(.hidden-panel) {
+        transform: translateY(0);
+    }
+
+    #toggleControls {
+        top: auto;
+        bottom: calc(50vh + 20px);
+        left: 20px !important;
+    }
+
+    #controls.hidden-panel ~ #toggleControls {
+        bottom: 20px;
+    }
+
+    #score {
+        font-size: 32px;
+        top: 10px;
+        right: 10px;
+    }
+
+    #info {
+        display: none;
+    }
+}
