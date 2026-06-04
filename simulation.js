@@ -176,6 +176,10 @@ class GravitySimulation {
         this.planets.forEach(p => p.maxTrailLength = length);
     }
 
+    getPlanetInteractionRange(planet) {
+        return this.planetInteractionRange * Math.max(1, planet.radius / 10.0);
+    }
+
     addStar(x, y, mass, radius, color, isStatic = true, isInitialSun = false) {
         const s = {
             x: x, y: y, mass: mass, radius: radius, color: color,
@@ -557,7 +561,12 @@ class GravitySimulation {
         }
         this.generators = activeGenerators;
 
-        const cellSize = this.planetInteractionRange;
+        let maxRange = this.planetInteractionRange;
+        for (const p of this.planets) {
+            const r = this.getPlanetInteractionRange(p);
+            if (r > maxRange) maxRange = r;
+        }
+        const cellSize = maxRange;
         const grid = new Map();
 
         for (const p of this.planets) {
@@ -644,7 +653,8 @@ class GravitySimulation {
                         const distX = p2.x - p1.x;
                         const distY = p2.y - p1.y;
                         const dSq = distX * distX + distY * distY;
-                        if (dSq > 0 && dSq < this.planetInteractionRange * this.planetInteractionRange) {
+                        const limitRange = Math.max(this.getPlanetInteractionRange(p1), this.getPlanetInteractionRange(p2));
+                        if (dSq > 0 && dSq < limitRange * limitRange) {
                             if (dSq <= (p1.radius + p2.radius) ** 2) continue;
                             const dVal = Math.sqrt(dSq);
                             const fM = (this.G * p1.mass * p2.mass) / dSq;
@@ -851,7 +861,8 @@ class GravitySimulation {
                     const dx = p2.x - p1.x, dy = p2.y - p1.y, dSq = dx * dx + dy * dy;
                     if (dSq < (p1.radius + p2.radius) ** 2) { crashedIds.add(p1.id); crashedIds.add(p2.id); p1.crashed = true; p2.crashed = true; continue; }
                     const dVal = Math.sqrt(dSq);
-                    if (dVal < this.planetInteractionRange) {
+                    const limitRange = Math.max(this.getPlanetInteractionRange(p1), this.getPlanetInteractionRange(p2));
+                    if (dVal < limitRange) {
                         const f = (this.G * p1.mass * p2.mass) / dSq, fx = (f * dx) / dVal, fy = (f * dy) / dVal;
                         accs[i * 2] += fx / p1.mass; accs[i * 2 + 1] += fy / p1.mass;
                         accs[j * 2] -= fx / p2.mass; accs[j * 2 + 1] -= fy / p2.mass;

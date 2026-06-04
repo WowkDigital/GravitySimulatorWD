@@ -58,6 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const scoreElement = document.getElementById('score');
     const gConstantRange = document.getElementById('gConstantRange');
     const gConstantValueSpan = document.getElementById('gConstantValue');
+    const interactionRangeRange = document.getElementById('interactionRangeRange');
+    const interactionRangeValueSpan = document.getElementById('interactionRangeValue');
     const trailLengthRange = document.getElementById('trailLengthRange');
     const trailLengthValueSpan = document.getElementById('trailLengthValue');
     const debrisCountInput = document.getElementById('debrisCountInput');
@@ -122,6 +124,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (dynamicStarsCheckbox) {
         sim.dynamicStars = dynamicStarsCheckbox.checked;
+    }
+    if (interactionRangeRange) {
+        sim.planetInteractionRange = parseInt(interactionRangeRange.value);
     }
     const checkedCollisionMode = document.querySelector('input[name="collisionMode"]:checked');
     if (checkedCollisionMode) {
@@ -455,7 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.lineWidth = 1 / scale;
             ctx.setLineDash([5 / scale, 5 / scale].map(x => x / (scale / 5))); // Heuristic fix for dash scaling
             ctx.beginPath();
-            ctx.arc(p.x, p.y, sim.planetInteractionRange, 0, Math.PI * 2);
+            ctx.arc(p.x, p.y, sim.getPlanetInteractionRange(p), 0, Math.PI * 2);
             ctx.stroke();
             ctx.setLineDash([]);
         }
@@ -1422,6 +1427,10 @@ document.addEventListener('DOMContentLoaded', () => {
         sim.setGravityConstant(parseInt(e.target.value));
         gConstantValueSpan.textContent = sim.G;
         if (isDragging && creationMode === 'planet' && showPrediction) calculateInitialPrediction();
+    });
+    interactionRangeRange.addEventListener('input', (e) => {
+        sim.planetInteractionRange = parseInt(e.target.value);
+        interactionRangeValueSpan.textContent = sim.planetInteractionRange;
     });
     trailLengthRange.addEventListener('input', (e) => {
         sim.setMaxTrailLength(parseInt(e.target.value));
