@@ -9,10 +9,11 @@ A highly interactive and visually stunning N-body gravity simulation built with 
 -   **Realistic Physics**: Accurate N-body gravity simulation with adjustable constants.
 -   **Creation Modes**:
     -   🌑 **Planets**: Launch planets with custom velocity.
-    -   ☀️ **Stars**: Place massive stars that act as gravitational anchors.
+    -   ☀️ **Stars**: Place massive stars that act as gravitational anchors (colored by mass: small red dwarfs, medium yellow stars, large blue giants).
     -   🛰️ **Generators**: Automatically spawn planets at intervals (supports stable orbits).
     -   🕳️ **Black Holes**: Massive absorbers that teleport objects to White Holes.
     -   ⚪ **White Holes**: Ejection points for objects captured by Black Holes.
+    -   ❌ **Delete**: Remove individual stars, generators, planets, or black/white holes by clicking on them.
 -   **Collision Dynamics**:
     -   💥 **Explosion**: Objects shatter into debris upon impact.
     -   🤝 **Merging**: Massive objects consume smaller ones, growing in size.

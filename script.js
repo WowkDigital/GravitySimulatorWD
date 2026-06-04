@@ -158,6 +158,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (audioManager) audioManager.playStarBurn(getZoomVolFactor());
     }
 
+    function playErasureSynth() {
+        if (audioManager) audioManager.playErasure(getZoomVolFactor());
+    }
+
     function stopDroneMusic() {
         if (audioManager) audioManager.stopMusic();
     }
@@ -182,6 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     sim.callbacks.onPlanetSpawn = () => { if (toggleSfxCheckbox.checked) playLaunchSynth(); };
     sim.callbacks.onStarCollision = () => { if (toggleSfxCheckbox.checked) playStarBurnSynth(); };
+    sim.callbacks.onErasure = () => { if (toggleSfxCheckbox.checked) playErasureSynth(); };
 
     if (toggleProximityHissCheckbox) {
         toggleProximityHissCheckbox.addEventListener('change', (e) => {
@@ -541,7 +546,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Central Star
         const centralStarMass = SIMULATION_CONFIG.STAR.BASE_MASS;
-        sim.addStar(0, 0, centralStarMass, calculateRadiusFromMass(centralStarMass), SIMULATION_CONFIG.STAR.BASE_COLOR, true, true);
+        sim.addStar(0, 0, centralStarMass, calculateRadiusFromMass(centralStarMass), getColorFromMass(centralStarMass), true, true);
 
         scale = 1.0;
         offsetX = canvas.width / 2;
@@ -1094,6 +1099,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (creationMode === 'star' && !didPointerMove) {
             const worldTapPos = screenToWorld(startDragPos.x, startDragPos.y);
             sim.addStar(worldTapPos.x, worldTapPos.y, nextStarMass, calculateRadiusFromMass(nextStarMass), getColorFromMass(nextStarMass), true, false);
+        } else if (creationMode === 'eraser' && !didPointerMove) {
+            const worldTapPos = screenToWorld(startDragPos.x, startDragPos.y);
+            const deleted = sim.removeElementAt(worldTapPos.x, worldTapPos.y, 25 / scale);
+            if (deleted && sim.callbacks.onErasure) {
+                sim.callbacks.onErasure();
+            }
         }
         isDragging = false;
         didPointerMove = false;
@@ -1137,23 +1148,29 @@ document.addEventListener('DOMContentLoaded', () => {
         speedLabel.style.top = `${labelY}px`;
     }
     function getColorFromMass(mass) {
-        const baseMass = SIMULATION_CONFIG.STAR.BASE_MASS;
-        if (mass < baseMass) {
-            // Scale down to Red Dwarf
-            // 0 -> Red (0), baseMass -> Yellow (60)
-            const ratio = mass / baseMass;
-            const hue = ratio * 60;
-            const saturation = 90 + (1 - ratio) * 10; // More saturated when smaller
-            const light = 50 + (1 - ratio) * 10;
-            return `hsl(${hue}, ${saturation}%, ${light}%)`;
+        if (mass <= 30000) {
+            // Interpolate between Red (0) and Orange (35)
+            const minM = 2000;
+            const maxM = 30000;
+            const ratio = Math.max(0, Math.min(1, (mass - minM) / (maxM - minM)));
+            const hue = ratio * 35; // 0 to 35
+            return `hsl(${hue}, 100%, 55%)`;
+        } else if (mass <= 100000) {
+            // Interpolate between Orange/Yellow (35) and Yellow/Greenish (60)
+            const minM = 30000;
+            const maxM = 100000;
+            const ratio = Math.max(0, Math.min(1, (mass - minM) / (maxM - minM)));
+            const hue = 35 + ratio * 25; // 35 to 60
+            return `hsl(${hue}, 100%, 60%)`;
         } else {
-            // Scale up to Blue Giant
-            // baseMass -> Yellow (60), 5*baseMass -> Blue (220)
-            const ratio = Math.min(1, (mass - baseMass) / (baseMass * 4));
-            const hue = 60 + ratio * (220 - 60);
+            // Interpolate between Yellow/Greenish (60) and Blue (210)
+            const minM = 100000;
+            const maxM = 400000;
+            const ratio = Math.max(0, Math.min(1, (mass - minM) / (maxM - minM)));
+            const hue = 60 + ratio * 150; // 60 to 210
             const saturation = 90;
-            const light = 60 + ratio * 20; // Brighter when larger
-            return `hsl(${hue}, ${saturation}%, ${light}%)`;
+            const lightness = 60 + ratio * 15; // 60% to 75%
+            return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
         }
     }
 

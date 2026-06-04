@@ -268,6 +268,22 @@ class GravityAudio {
         noise.start(t);
     }
 
+    playErasure(zoomVolFactor) {
+        if (!this.isInitialized) return;
+        const t = this.time();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, t);
+        osc.frequency.exponentialRampToValueAtTime(80, t + 0.15);
+        gain.gain.setValueAtTime(0.25 * zoomVolFactor, t);
+        gain.gain.exponentialRampToValueAtTime(0.01 * zoomVolFactor, t + 0.15);
+        osc.start(t);
+        osc.stop(t + 0.15);
+    }
+
     setProximityHissEnabled(enabled) {
         this.proximityHissEnabled = enabled;
     }

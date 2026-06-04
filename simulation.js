@@ -210,6 +210,106 @@ class GravitySimulation {
         this.generators = [];
     }
 
+    removeElementAt(x, y, maxDistance) {
+        let closestElement = null;
+        let closestDist = Infinity;
+        let elementType = null; // 'star', 'planet', 'generator', 'black-hole', 'white-hole'
+        let elementIndex = -1;
+
+        // Check generators
+        for (let i = 0; i < this.generators.length; i++) {
+            const gen = this.generators[i];
+            const dx = gen.x - x;
+            const dy = gen.y - y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const clickRadius = Math.max(25, maxDistance);
+            if (dist < clickRadius && dist < closestDist) {
+                closestDist = dist;
+                closestElement = gen;
+                elementType = 'generator';
+                elementIndex = i;
+            }
+        }
+
+        // Check stars
+        for (let i = 0; i < this.stars.length; i++) {
+            const star = this.stars[i];
+            const dx = star.x - x;
+            const dy = star.y - y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const clickRadius = Math.max(star.radius, maxDistance);
+            if (dist < clickRadius && dist < closestDist) {
+                closestDist = dist;
+                closestElement = star;
+                elementType = 'star';
+                elementIndex = i;
+            }
+        }
+
+        // Check black holes
+        for (let i = 0; i < this.blackHoles.length; i++) {
+            const bh = this.blackHoles[i];
+            const dx = bh.x - x;
+            const dy = bh.y - y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const clickRadius = Math.max(bh.radius, maxDistance);
+            if (dist < clickRadius && dist < closestDist) {
+                closestDist = dist;
+                closestElement = bh;
+                elementType = 'black-hole';
+                elementIndex = i;
+            }
+        }
+
+        // Check white holes
+        for (let i = 0; i < this.whiteHoles.length; i++) {
+            const wh = this.whiteHoles[i];
+            const dx = wh.x - x;
+            const dy = wh.y - y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const clickRadius = Math.max(wh.radius, maxDistance);
+            if (dist < clickRadius && dist < closestDist) {
+                closestDist = dist;
+                closestElement = wh;
+                elementType = 'white-hole';
+                elementIndex = i;
+            }
+        }
+
+        // Check planets (excluding debris)
+        for (let i = 0; i < this.planets.length; i++) {
+            const p = this.planets[i];
+            if (p.isDebris) continue;
+            const dx = p.x - x;
+            const dy = p.y - y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const clickRadius = Math.max(p.radius, maxDistance);
+            if (dist < clickRadius && dist < closestDist) {
+                closestDist = dist;
+                closestElement = p;
+                elementType = 'planet';
+                elementIndex = i;
+            }
+        }
+
+        if (closestElement !== null) {
+            if (elementType === 'generator') {
+                this.generators.splice(elementIndex, 1);
+            } else if (elementType === 'star') {
+                this.stars.splice(elementIndex, 1);
+            } else if (elementType === 'black-hole') {
+                this.blackHoles.splice(elementIndex, 1);
+            } else if (elementType === 'white-hole') {
+                this.whiteHoles.splice(elementIndex, 1);
+            } else if (elementType === 'planet') {
+                this.planets.splice(elementIndex, 1);
+            }
+            return true;
+        }
+
+        return false;
+    }
+
     spawnTarget() {
         this.target.isActive = true;
         const minDistance = SIMULATION_CONFIG.TARGET.MIN_DISTANCE;
