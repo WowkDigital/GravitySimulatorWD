@@ -82,6 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const showBoundaryCheckbox = document.getElementById('showBoundary');
     const showGridCheckbox = document.getElementById('showGrid');
     const toggleContainmentCheckbox = document.getElementById('toggleContainment');
+    const jp2ModeCheckbox = document.getElementById('jp2Mode');
     const activeCounterElement = document.getElementById('activeCounter');
     const trackingModeCheckbox = document.getElementById('trackingModeCheckbox');
     const trackedPlanetSelect = document.getElementById('trackedPlanetSelect');
@@ -125,6 +126,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (dynamicStarsCheckbox) {
         sim.dynamicStars = dynamicStarsCheckbox.checked;
+    }
+    if (jp2ModeCheckbox) {
+        sim.jp2Mode = jp2ModeCheckbox.checked;
     }
     if (interactionRangeRange) {
         sim.planetInteractionRange = parseInt(interactionRangeRange.value);
@@ -250,6 +254,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const planetsSpritesheet = new Image();
     planetsSpritesheet.src = 'textures/planets_spritesheet.png';
     planetsSpritesheet.onload = () => { planetsSpritesheet.isLoaded = true; };
+
+    const kremowkaTexture = new Image();
+    kremowkaTexture.src = 'textures/kremowka.png';
+    kremowkaTexture.onload = () => { kremowkaTexture.isLoaded = true; };
+
+    const jp2FaceTexture = new Image();
+    jp2FaceTexture.src = 'textures/jp2_face.png';
+    jp2FaceTexture.onload = () => { jp2FaceTexture.isLoaded = true; };
 
     // --- Global View State ---
     let creationMode = 'planet';
@@ -442,8 +454,11 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fillStyle = gradient;
             ctx.fill();
 
-            // Texture (sliced from 3x3 planets spritesheet)
-            if (p.textureIndex >= 0 && planetsSpritesheet.isLoaded) {
+            // Texture (sliced from 3x3 planets spritesheet or JP2 face)
+            if (sim.jp2Mode && jp2FaceTexture.isLoaded) {
+                ctx.clip();
+                ctx.drawImage(jp2FaceTexture, -p.radius, -p.radius, p.radius * 2, p.radius * 2);
+            } else if (p.textureIndex >= 0 && planetsSpritesheet.isLoaded) {
                 ctx.clip();
                 const cellW = planetsSpritesheet.width / 3;
                 const cellH = planetsSpritesheet.height / 3;
@@ -833,21 +848,20 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.restore();
 
             // 2. Main Star Body
-            ctx.beginPath();
-            ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
-            ctx.fillStyle = star.color;
-            ctx.fill();
-
-            /*   // 3. Inner Core Detail (Subtle bright spot)
-              const innerGradient = ctx.createRadialGradient(
-                  star.x - star.radius * 0.2, star.y - star.radius * 0.2, star.radius * 0.1,
-                  star.x, star.y, star.radius
-              );
-              innerGradient.addColorStop(0, '#ffffff');
-              innerGradient.addColorStop(0.2, star.color);
-              innerGradient.addColorStop(1, star.color);
-              ctx.fillStyle = innerGradient;
-              ctx.fill(); */
+            if (sim.jp2Mode && kremowkaTexture.isLoaded) {
+                ctx.save();
+                ctx.translate(star.x, star.y);
+                // Rotate the kremówka cake slowly over time
+                const rot = (Date.now() / 1500) % (Math.PI * 2);
+                ctx.rotate(rot);
+                ctx.drawImage(kremowkaTexture, -star.radius, -star.radius, star.radius * 2, star.radius * 2);
+                ctx.restore();
+            } else {
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                ctx.fillStyle = star.color;
+                ctx.fill();
+            }
         }
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
@@ -998,7 +1012,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const pvx = p.vx + tangentX * orbitSpeed + Math.cos(angle) * driftSpeed;
                     const pvy = p.vy + tangentY * orbitSpeed + Math.sin(angle) * driftSpeed;
                     
-                    const baseColor = p.color || 'hsl(180, 50%, 50%)';
+                    // Golden yellow halo particles in JP2 Mode, otherwise matched planet colors
+                    const baseColor = sim.jp2Mode ? 'hsl(45, 100%, 65%)' : (p.color || 'hsl(180, 50%, 50%)');
                     const life = 0.8 + Math.random() * 1.2;
                     
                     planetParticles.push({
@@ -1507,6 +1522,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!showPlanetParticles) {
                 planetParticles = [];
             }
+        });
+    }
+    if (jp2ModeCheckbox) {
+        jp2ModeCheckbox.addEventListener('change', (e) => {
+            sim.jp2Mode = e.target.checked;
         });
     }
     starMassRange.addEventListener('input', (e) => { nextStarMass = parseInt(e.target.value); starMassValueSpan.textContent = nextStarMass; });
