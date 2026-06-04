@@ -56,9 +56,39 @@
                         <input type="range" id="spawnIntervalRange" min="0.5" max="5.0" step="0.5" value="2.0">
                     </div>
                     <span id="spawnIntervalValue" class="value-display">2.0</span>
+
                     <label style="margin-top: 5px; display: flex; align-items: center; gap: 5px;">
                         <input type="checkbox" id="stableOrbitCheckbox"> Stable orbits
                     </label>
+
+                    <div id="generatorPhysicsOptions" style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+                        <div class="control-group" style="margin-bottom: 0;">
+                            <label for="generatorLaunchSpeedRange">Launch Speed:</label>
+                            <div class="slider-container">
+                                <input type="range" id="generatorLaunchSpeedRange" min="50" max="1000" step="50" value="300">
+                            </div>
+                            <span id="generatorLaunchSpeedValue" class="value-display">300</span>
+                        </div>
+
+                        <div class="control-group" style="margin-bottom: 0;">
+                            <label for="generatorLaunchAngleRange">Launch Angle (°):</label>
+                            <div class="slider-container">
+                                <input type="range" id="generatorLaunchAngleRange" min="0" max="359" step="5" value="0">
+                            </div>
+                            <span id="generatorLaunchAngleValue" class="value-display">0°</span>
+                        </div>
+                    </div>
+
+                    <div class="control-group" style="margin-top: 5px;">
+                        <label for="generatorLimitInput">Launch Limit:</label>
+                        <div class="number-input-container" style="width: 100%;">
+                            <button class="number-input-button" id="generatorLimitDecrement">-</button>
+                            <input type="number" id="generatorLimitInput" min="0" max="1000" step="5" value="0" style="flex: 1;">
+                            <button class="number-input-button" id="generatorLimitIncrement">+</button>
+                            <span style="font-size: 10px; margin-left: 10px; opacity: 0.5;">(0=inf)</span>
+                        </div>
+                    </div>
+
                     <button id="clearGeneratorsButton"
                         style="width: 100%; margin-top: 5px; background: rgba(255,50,50,0.2); border: 1px solid rgba(255,50,50,0.3);">Clear
                         Generators</button>

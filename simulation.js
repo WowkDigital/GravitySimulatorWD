@@ -105,7 +105,7 @@ class Planet {
 }
 
 class Generator {
-    constructor(x, y, angle, interval, color, mode = 'normal') {
+    constructor(x, y, angle, interval, color, mode = 'normal', limit = 0, launchSpeed = 300) {
         this.x = x;
         this.y = y;
         this.angle = angle;
@@ -113,6 +113,9 @@ class Generator {
         this.lastSpawnTime = 0;
         this.color = color;
         this.mode = mode; // 'normal' or 'stable'
+        this.limit = limit; // 0 means infinite
+        this.spawnedCount = 0;
+        this.launchSpeed = launchSpeed;
     }
 }
 
@@ -203,8 +206,8 @@ class GravitySimulation {
         return p;
     }
 
-    addGenerator(x, y, angle, interval, color, mode = 'normal') {
-        const gen = new Generator(x, y, angle, interval, color, mode);
+    addGenerator(x, y, angle, interval, color, mode = 'normal', limit = 0, launchSpeed = 300) {
+        const gen = new Generator(x, y, angle, interval, color, mode, limit, launchSpeed);
         this.generators.push(gen);
         return gen;
     }
@@ -390,7 +393,12 @@ class GravitySimulation {
         let deadPlanetIds = new Set();
 
         // Generators Logic
+        let activeGenerators = [];
         for (const gen of this.generators) {
+            if (gen.limit > 0 && gen.spawnedCount >= gen.limit) {
+                continue;
+            }
+
             if (currentTime - gen.lastSpawnTime > gen.interval) {
                 gen.lastSpawnTime = currentTime;
 
@@ -434,13 +442,11 @@ class GravitySimulation {
                         pVx = 0; pVy = 0;
                     }
                 } else {
-                    const coneHalfAngle = (Math.PI / 4) / 1;
+                    const coneHalfAngle = (Math.PI / 32); // Narrower launch cone for custom launcher
                     const randomAngleOffset = (Math.random() * 2 - 1) * coneHalfAngle;
                     const finalAngle = gen.angle + randomAngleOffset;
 
-                    const minLaunch = SIMULATION_CONFIG.GENERATOR.LAUNCH_SPEED_MIN;
-                    const varLaunch = SIMULATION_CONFIG.GENERATOR.LAUNCH_SPEED_VAR;
-                    const launchSpeed = (Math.random() * varLaunch + minLaunch);
+                    const launchSpeed = gen.launchSpeed || (Math.random() * SIMULATION_CONFIG.GENERATOR.LAUNCH_SPEED_VAR + SIMULATION_CONFIG.GENERATOR.LAUNCH_SPEED_MIN);
 
                     pVx = Math.cos(finalAngle) * launchSpeed;
                     pVy = Math.sin(finalAngle) * launchSpeed;
@@ -451,8 +457,15 @@ class GravitySimulation {
 
                 this.addPlanet(gen.x, gen.y, pVx, pVy, randomMass, radius, `hsl(${Math.random() * 360}, 70%, 70%)`);
                 if (this.callbacks.onPlanetSpawn) this.callbacks.onPlanetSpawn();
+
+                gen.spawnedCount++;
+            }
+
+            if (gen.limit === 0 || gen.spawnedCount < gen.limit) {
+                activeGenerators.push(gen);
             }
         }
+        this.generators = activeGenerators;
 
         const cellSize = this.planetInteractionRange;
         const grid = new Map();

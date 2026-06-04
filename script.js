@@ -46,6 +46,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const spawnIntervalValueSpan = document.getElementById('spawnIntervalValue');
     const stableOrbitCheckbox = document.getElementById('stableOrbitCheckbox');
     const clearGeneratorsButton = document.getElementById('clearGeneratorsButton');
+    const generatorLaunchSpeedRange = document.getElementById('generatorLaunchSpeedRange');
+    const generatorLaunchSpeedValueSpan = document.getElementById('generatorLaunchSpeedValue');
+    const generatorLaunchAngleRange = document.getElementById('generatorLaunchAngleRange');
+    const generatorLaunchAngleValueSpan = document.getElementById('generatorLaunchAngleValue');
+    const generatorLimitInput = document.getElementById('generatorLimitInput');
+    const generatorLimitDecrementBtn = document.getElementById('generatorLimitDecrement');
+    const generatorLimitIncrementBtn = document.getElementById('generatorLimitIncrement');
+    const generatorPhysicsOptionsDiv = document.getElementById('generatorPhysicsOptions');
 
     const scoreElement = document.getElementById('score');
     const gConstantRange = document.getElementById('gConstantRange');
@@ -236,6 +244,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let creationMode = 'planet';
     let nextStarMass = parseInt(starMassRange.value);
     let spawnInterval = parseFloat(spawnIntervalRange.value);
+    let generatorLaunchSpeed = generatorLaunchSpeedRange ? parseInt(generatorLaunchSpeedRange.value) : 300;
+    let generatorLaunchAngle = generatorLaunchAngleRange ? parseInt(generatorLaunchAngleRange.value) : 0;
+    let generatorLimit = generatorLimitInput ? parseInt(generatorLimitInput.value) : 0;
     let initialPredictedPath = [];
     let lastPredictionTime = 0;
 
@@ -809,6 +820,29 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.save();
             ctx.translate(gen.x, gen.y);
             ctx.rotate(gen.angle);
+
+            // Draw a subtle line showing direction & force/speed if not in stable orbit mode
+            if (gen.mode !== 'stable') {
+                const arrowLength = (gen.launchSpeed || 300) * 0.15;
+                ctx.beginPath();
+                ctx.moveTo(20, 0);
+                ctx.lineTo(arrowLength, 0);
+                ctx.strokeStyle = 'rgba(255, 0, 255, 0.4)';
+                ctx.lineWidth = 2 / scale;
+                ctx.setLineDash([4 / scale, 4 / scale]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Draw arrow head at the end
+                ctx.beginPath();
+                ctx.moveTo(arrowLength, 0);
+                ctx.lineTo(arrowLength - 8 / scale, -4 / scale);
+                ctx.moveTo(arrowLength, 0);
+                ctx.lineTo(arrowLength - 8 / scale, 4 / scale);
+                ctx.strokeStyle = 'rgba(255, 0, 255, 0.6)';
+                ctx.stroke();
+            }
+
             ctx.fillStyle = 'rgba(255, 0, 255, 0.1)';
             ctx.beginPath();
             ctx.moveTo(0, 0);
@@ -823,6 +857,42 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.lineWidth = 4;
             ctx.stroke();
             ctx.restore();
+
+            // Draw counter above the generator (upright)
+            if (gen.limit > 0) {
+                ctx.save();
+                ctx.translate(gen.x, gen.y - 30);
+                ctx.font = `bold ${10 / scale}px 'Inter', sans-serif`;
+                
+                const text = `${gen.spawnedCount}/${gen.limit}`;
+                const textWidth = ctx.measureText(text).width;
+                const paddingX = 6 / scale;
+                const paddingY = 4 / scale;
+                
+                // Rounded rect background
+                const bgWidth = textWidth + paddingX * 2;
+                const bgHeight = 14 / scale;
+                const rx = -bgWidth / 2;
+                const ry = -bgHeight;
+                
+                ctx.fillStyle = 'rgba(10, 10, 15, 0.85)';
+                ctx.strokeStyle = gen.color;
+                ctx.lineWidth = 1 / scale;
+                ctx.beginPath();
+                if (ctx.roundRect) {
+                    ctx.roundRect(rx, ry, bgWidth, bgHeight, 4 / scale);
+                } else {
+                    ctx.rect(rx, ry, bgWidth, bgHeight);
+                }
+                ctx.fill();
+                ctx.stroke();
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(text, 0, ry + bgHeight / 2);
+                ctx.restore();
+            }
         }
         ctx.restore();
     }
@@ -1104,11 +1174,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else if (creationMode === 'generator') {
             const worldStartPos = screenToWorld(startDragPos.x, startDragPos.y);
-            const angle = Math.atan2(endScreenPos.y - startDragPos.y, endScreenPos.x - startDragPos.x);
+            let angle = Math.atan2(endScreenPos.y - startDragPos.y, endScreenPos.x - startDragPos.x);
+            if (!didPointerMove) {
+                angle = generatorLaunchAngle * Math.PI / 180;
+            } else {
+                let dragDegrees = Math.round(angle * 180 / Math.PI);
+                if (dragDegrees < 0) dragDegrees += 360;
+                generatorLaunchAngle = dragDegrees;
+                if (generatorLaunchAngleRange) {
+                    generatorLaunchAngleRange.value = dragDegrees;
+                }
+                if (generatorLaunchAngleValueSpan) {
+                    generatorLaunchAngleValueSpan.textContent = `${dragDegrees}°`;
+                }
+            }
             const isStable = stableOrbitCheckbox && stableOrbitCheckbox.checked;
             const mode = isStable ? 'stable' : 'normal';
             const color = isStable ? 'hsl(180, 100%, 70%)' : 'hsl(300, 100%, 70%)';
-            sim.addGenerator(worldStartPos.x, worldStartPos.y, angle, spawnInterval, color, mode);
+            sim.addGenerator(worldStartPos.x, worldStartPos.y, angle, spawnInterval, color, mode, generatorLimit, generatorLaunchSpeed);
             if (toggleSfxCheckbox.checked) playLaunchSynth();
         } else if (creationMode === 'black-hole' && !didPointerMove) {
             const worldTapPos = screenToWorld(startDragPos.x, startDragPos.y);
@@ -1278,6 +1361,42 @@ document.addEventListener('DOMContentLoaded', () => {
         trailLengthValueSpan.textContent = sim.maxTrailLength;
     });
     spawnIntervalRange.addEventListener('input', (e) => { spawnInterval = parseFloat(e.target.value); spawnIntervalValueSpan.textContent = spawnInterval.toFixed(1); });
+    if (generatorLaunchSpeedRange) {
+        generatorLaunchSpeedRange.addEventListener('input', (e) => {
+            generatorLaunchSpeed = parseInt(e.target.value);
+            generatorLaunchSpeedValueSpan.textContent = generatorLaunchSpeed;
+        });
+    }
+    if (generatorLaunchAngleRange) {
+        generatorLaunchAngleRange.addEventListener('input', (e) => {
+            generatorLaunchAngle = parseInt(e.target.value);
+            generatorLaunchAngleValueSpan.textContent = `${generatorLaunchAngle}°`;
+        });
+    }
+    if (generatorLimitInput) {
+        generatorLimitInput.addEventListener('input', (e) => {
+            generatorLimit = Math.max(0, parseInt(e.target.value) || 0);
+        });
+    }
+    if (generatorLimitDecrementBtn) {
+        generatorLimitDecrementBtn.addEventListener('click', () => {
+            generatorLimit = Math.max(0, generatorLimit - 5);
+            generatorLimitInput.value = generatorLimit;
+        });
+    }
+    if (generatorLimitIncrementBtn) {
+        generatorLimitIncrementBtn.addEventListener('click', () => {
+            generatorLimit = Math.min(1000, generatorLimit + 5);
+            generatorLimitInput.value = generatorLimit;
+        });
+    }
+    if (stableOrbitCheckbox) {
+        stableOrbitCheckbox.addEventListener('change', (e) => {
+            if (generatorPhysicsOptionsDiv) {
+                generatorPhysicsOptionsDiv.classList.toggle('hidden', e.target.checked);
+            }
+        });
+    }
     clearGeneratorsButton.addEventListener('click', () => sim.clearGenerators());
     debrisDecrementBtn.addEventListener('click', () => { sim.debrisCount = Math.max(0, sim.debrisCount - 10); debrisCountInput.value = sim.debrisCount; });
     debrisIncrementBtn.addEventListener('click', () => { sim.debrisCount = Math.min(100, sim.debrisCount + 10); debrisCountInput.value = sim.debrisCount; });
