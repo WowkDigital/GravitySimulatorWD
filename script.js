@@ -78,6 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const showOngoingPredictionCheckbox = document.getElementById('showOngoingPrediction');
     const showCollisionWarningCheckbox = document.getElementById('showCollisionWarning');
     const showInteractionRangeCheckbox = document.getElementById('showInteractionRange');
+    const showPlanetParticlesCheckbox = document.getElementById('showPlanetParticles');
     const showBoundaryCheckbox = document.getElementById('showBoundary');
     const showGridCheckbox = document.getElementById('showGrid');
     const toggleContainmentCheckbox = document.getElementById('toggleContainment');
@@ -277,6 +278,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let showCollisionWarning = showCollisionWarningCheckbox ? showCollisionWarningCheckbox.checked : false;
     let predictionTime = parseFloat(predictionTimeRange.value);
     let showInteractionRange = showInteractionRangeCheckbox.checked;
+    let showPlanetParticles = showPlanetParticlesCheckbox ? showPlanetParticlesCheckbox.checked : true;
+    let planetParticles = [];
     let predictedCollisionIds = new Set();
     let collisionFrameCounter = 0;
     let showBoundary = showBoundaryCheckbox ? showBoundaryCheckbox.checked : true;
@@ -349,6 +352,40 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.arc(x + centerX, y + centerY, star.size / star.z, 0, Math.PI * 2);
             ctx.fill();
         });
+    }
+
+    // --- Planet Particles Drawer ---
+    function updateAndDrawPlanetParticles(ctx) {
+        if (!showPlanetParticles) return;
+        
+        const dt = sim.dt;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        
+        const activeParticles = [];
+        for (const pt of planetParticles) {
+            pt.x += pt.vx * dt;
+            pt.y += pt.vy * dt;
+            pt.life -= dt;
+            
+            if (pt.life > 0) {
+                activeParticles.push(pt);
+                const progress = pt.life / pt.maxLife;
+                const currentAlpha = pt.alpha * progress;
+                const currentSize = pt.size * (0.3 + 0.7 * progress);
+                
+                try {
+                    ctx.fillStyle = pt.color.replace('hsl', 'hsla').replace(')', `, ${currentAlpha})`);
+                } catch (e) {
+                    ctx.fillStyle = `rgba(255, 255, 255, ${currentAlpha})`;
+                }
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, currentSize, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        planetParticles = activeParticles;
+        ctx.restore();
     }
 
     // --- Planet Drawer ---
@@ -827,6 +864,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (showPrediction && isDragging) drawInitialPrediction(ctx);
+        updateAndDrawPlanetParticles(ctx);
         for (const planet of sim.planets) {
             drawPlanet(ctx, planet);
             if (showOngoingPrediction) drawOngoingTrajectory(ctx, planet);
@@ -939,6 +977,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         sim.update(now);
+        
+        // Spawn planet particles
+        if (showPlanetParticles && !isPaused) {
+            for (const p of sim.planets) {
+                if (p.isDebris) continue;
+                if (planetParticles.length >= 1000) break;
+                
+                if (Math.random() < 0.25) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = p.radius * (1.0 + Math.random() * 0.25);
+                    const px = p.x + Math.cos(angle) * dist;
+                    const py = p.y + Math.sin(angle) * dist;
+                    
+                    const tangentX = -Math.sin(angle);
+                    const tangentY = Math.cos(angle);
+                    const orbitSpeed = (15 + Math.random() * 30);
+                    const driftSpeed = (5 + Math.random() * 10);
+                    
+                    const pvx = p.vx + tangentX * orbitSpeed + Math.cos(angle) * driftSpeed;
+                    const pvy = p.vy + tangentY * orbitSpeed + Math.sin(angle) * driftSpeed;
+                    
+                    const baseColor = p.color || 'hsl(180, 50%, 50%)';
+                    const life = 0.8 + Math.random() * 1.2;
+                    
+                    planetParticles.push({
+                        x: px,
+                        y: py,
+                        vx: pvx,
+                        vy: pvy,
+                        color: baseColor,
+                        alpha: 0.7 + Math.random() * 0.3,
+                        size: 1.0 + Math.random() * 1.5,
+                        life: life,
+                        maxLife: life
+                    });
+                }
+            }
+        }
+
         updateAmbientSounds();
 
         const activeObjectsCount = sim.planets.length + sim.stars.length;
@@ -1422,6 +1499,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dynamicStarsCheckbox) {
         dynamicStarsCheckbox.addEventListener('change', (e) => {
             sim.dynamicStars = e.target.checked;
+        });
+    }
+    if (showPlanetParticlesCheckbox) {
+        showPlanetParticlesCheckbox.addEventListener('change', (e) => {
+            showPlanetParticles = e.target.checked;
+            if (!showPlanetParticles) {
+                planetParticles = [];
+            }
         });
     }
     starMassRange.addEventListener('input', (e) => { nextStarMass = parseInt(e.target.value); starMassValueSpan.textContent = nextStarMass; });
