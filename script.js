@@ -110,6 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Simulation Instance ---
     const sim = new GravitySimulation();
+    window.sim = sim;
 
     // Sync initial states from HTML to Simulation instance
     if (disableWorldBoundaryCheckbox) {
@@ -984,10 +985,38 @@ document.addEventListener('DOMContentLoaded', () => {
         pulseTime += sim.dt * 2;
         const now = Date.now() / 1000;
 
-        // Optimization
+        // Optimization: safely remove least important planets first (debris or smallest planets)
         if (currentFps < 45 && sim.planets.length > 30) {
             const removeCount = currentFps < 25 ? 5 : 1;
-            for (let r = 0; r < removeCount && sim.planets.length > 20; r++) { sim.planets.shift(); }
+            for (let r = 0; r < removeCount && sim.planets.length > 20; r++) {
+                let candidateIdx = -1;
+                let minVal = Infinity;
+                
+                for (let i = 0; i < sim.planets.length; i++) {
+                    const p = sim.planets[i];
+                    if (p.id === trackedPlanetId) continue; // Do not delete the tracked planet
+                    
+                    let priority = p.mass;
+                    if (p.isDebris) {
+                        priority = -1; // Highest priority to delete debris
+                    }
+                    
+                    if (priority < minVal) {
+                        minVal = priority;
+                        candidateIdx = i;
+                    }
+                }
+                
+                if (candidateIdx !== -1 && (minVal < 300 || sim.planets.length > 50)) {
+                    sim.planets.splice(candidateIdx, 1);
+                } else {
+                    if (sim.planets[0].id !== trackedPlanetId && sim.planets[0].mass < 300) {
+                        sim.planets.shift();
+                    } else {
+                        break;
+                    }
+                }
+            }
         }
 
         sim.update(now);

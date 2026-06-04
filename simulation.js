@@ -45,6 +45,30 @@ const SIMULATION_CONFIG = {
 
 };
 
+function getColorFromMass(mass) {
+    if (mass <= 30000) {
+        const minM = 2000;
+        const maxM = 30000;
+        const ratio = Math.max(0, Math.min(1, (mass - minM) / (maxM - minM)));
+        const hue = ratio * 35; // 0 to 35
+        return `hsl(${hue}, 100%, 55%)`;
+    } else if (mass <= 100000) {
+        const minM = 30000;
+        const maxM = 100000;
+        const ratio = Math.max(0, Math.min(1, (mass - minM) / (maxM - minM)));
+        const hue = 35 + ratio * 25; // 35 to 60
+        return `hsl(${hue}, 100%, 60%)`;
+    } else {
+        const minM = 100000;
+        const maxM = 400000;
+        const ratio = Math.max(0, Math.min(1, (mass - minM) / (maxM - minM)));
+        const hue = 60 + ratio * 150; // 60 to 210
+        const saturation = 90;
+        const lightness = 60 + ratio * 15; // 60% to 75%
+        return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    }
+}
+
 class Planet {
     constructor(id, x, y, vx, vy, mass, radius, color, isDebris = false, lifetime = Infinity) {
         this.id = id;
@@ -414,10 +438,35 @@ class GravitySimulation {
         this.target.isActive = true;
         const minDistance = SIMULATION_CONFIG.TARGET.MIN_DISTANCE;
         const maxDistance = SIMULATION_CONFIG.TARGET.MAX_DISTANCE;
-        const angle = Math.random() * Math.PI * 2;
-        const dist = Math.sqrt(Math.random()) * (maxDistance - minDistance) + minDistance;
-        this.target.x = Math.cos(angle) * dist;
-        this.target.y = Math.sin(angle) * dist;
+        
+        let attempts = 0;
+        let valid = false;
+        let tx = 0, ty = 0;
+        
+        while (!valid && attempts < 100) {
+            attempts++;
+            const angle = Math.random() * Math.PI * 2;
+            const dist = Math.sqrt(Math.random()) * (maxDistance - minDistance) + minDistance;
+            tx = Math.cos(angle) * dist;
+            ty = Math.sin(angle) * dist;
+            
+            // Check if this position is inside any planet
+            let inside = false;
+            for (const p of this.planets) {
+                if (p.isDebris) continue;
+                const dSq = (tx - p.x) ** 2 + (ty - p.y) ** 2;
+                if (dSq < (p.radius + this.target.radius + 30) ** 2) {
+                    inside = true;
+                    break;
+                }
+            }
+            if (!inside) {
+                valid = true;
+            }
+        }
+        
+        this.target.x = tx;
+        this.target.y = ty;
         this.target.color = `hsl(${Math.random() * 360}, 100%, 60%)`;
     }
 
@@ -583,16 +632,47 @@ class GravitySimulation {
             const p1 = this.planets[i];
 
             // 1. Star Collisions
-            for (const star of this.stars) {
+            for (let sIdx = 0; sIdx < this.stars.length; sIdx++) {
+                const star = this.stars[sIdx];
                 const dx = p1.x - star.x;
                 const dy = p1.y - star.y;
                 const dSqToStar = dx * dx + dy * dy;
                 if (dSqToStar < (p1.radius + star.radius) ** 2) {
-                    planetsToRemoveIndices.add(i);
-                    deadPlanetIds.add(p1.id);
-                    p1.isDead = true;
-                    if (this.callbacks.onStarCollision && !p1.isDebris) this.callbacks.onStarCollision(p1, star);
-                    break;
+                    if (this.collisionMode === 'merge') {
+                        const efficiency = SIMULATION_CONFIG.COLLISION.MERGE_EFFICIENCY || 1.0;
+                        if (p1.mass >= star.mass) {
+                            // Planet absorbs the star!
+                            p1.mass += star.mass * efficiency;
+                            p1.radius = Math.pow(p1.mass, SIMULATION_CONFIG.PLANET.RADIUS_EXPONENT) * SIMULATION_CONFIG.PLANET.RADIUS_MULTIPLIER;
+                            
+                            // Remove star from simulation
+                            this.stars.splice(sIdx, 1);
+                            sIdx--;
+                            
+                            if (this.callbacks.onStarCollision && !p1.isDebris) {
+                                this.callbacks.onStarCollision(p1, star);
+                            }
+                            break; // Break the star loop for this planet
+                        } else {
+                            // Star absorbs the planet
+                            star.mass += p1.mass * efficiency;
+                            star.radius = Math.pow(star.mass, SIMULATION_CONFIG.PLANET.RADIUS_EXPONENT) * SIMULATION_CONFIG.PLANET.RADIUS_MULTIPLIER;
+                            star.color = getColorFromMass(star.mass);
+                            
+                            p1.isDead = true;
+                            if (this.callbacks.onStarCollision && !p1.isDebris) {
+                                this.callbacks.onStarCollision(p1, star);
+                            }
+                            break;
+                        }
+                    } else {
+                        // Explode / Default: Planet is destroyed
+                        p1.isDead = true;
+                        if (this.callbacks.onStarCollision && !p1.isDebris) {
+                            this.callbacks.onStarCollision(p1, star);
+                        }
+                        break;
+                    }
                 }
             }
             if (p1.isDead) continue;
@@ -835,6 +915,11 @@ class GravitySimulation {
             if (this.target.isActive && !p.isDebris && (p.x - this.target.x) ** 2 + (p.y - this.target.y) ** 2 < (p.radius + this.target.radius) ** 2) {
                 this.score++; this.target.isActive = false; this.spawnTarget();
                 if (this.callbacks.onTargetHit) this.callbacks.onTargetHit();
+                
+                // If in merging mode, keep the planet instead of deleting it.
+                if (this.collisionMode === 'merge') {
+                    nonHit.push(p);
+                }
             } else nonHit.push(p);
         }
         this.planets = nonHit;
