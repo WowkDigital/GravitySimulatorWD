@@ -246,14 +246,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Texture Management ---
-    const planetTextures = [];
-    const NUM_TEXTURES = 10;
-    for (let i = 0; i < NUM_TEXTURES; i++) {
-        const img = new Image();
-        img.src = `textures/planet${i}.png`;
-        img.onload = () => { img.isLoaded = true; };
-        planetTextures.push(img);
-    }
+    const planetsSpritesheet = new Image();
+    planetsSpritesheet.src = 'textures/planets_spritesheet.png';
+    planetsSpritesheet.onload = () => { planetsSpritesheet.isLoaded = true; };
 
     // --- Global View State ---
     let creationMode = 'planet';
@@ -410,10 +405,17 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fillStyle = gradient;
             ctx.fill();
 
-            // Texture
-            if (p.textureIndex >= 0 && planetTextures[p.textureIndex] && planetTextures[p.textureIndex].isLoaded) {
+            // Texture (sliced from 3x3 planets spritesheet)
+            if (p.textureIndex >= 0 && planetsSpritesheet.isLoaded) {
                 ctx.clip();
-                ctx.drawImage(planetTextures[p.textureIndex], -p.radius, -p.radius, p.radius * 2, p.radius * 2);
+                const cellW = planetsSpritesheet.width / 3;
+                const cellH = planetsSpritesheet.height / 3;
+                const col = p.textureIndex % 3;
+                const row = Math.floor(p.textureIndex / 3);
+                const sx = col * cellW;
+                const sy = row * cellH;
+                
+                ctx.drawImage(planetsSpritesheet, sx, sy, cellW, cellH, -p.radius, -p.radius, p.radius * 2, p.radius * 2);
                 const overlayGradient = ctx.createRadialGradient(-p.radius * 0.3, -p.radius * 0.3, p.radius * 0.1, 0, 0, p.radius);
                 overlayGradient.addColorStop(0, 'rgba(255,255,255,0.2)');
                 overlayGradient.addColorStop(0.5, 'rgba(0,0,0,0)');

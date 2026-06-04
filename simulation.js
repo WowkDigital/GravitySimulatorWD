@@ -207,7 +207,7 @@ class GravitySimulation {
         p.maxTrailLength = this.maxTrailLength;
         // Assign texture index signal (randomly 0-9 for non-debris)
         if (!isDebris) {
-            p.textureIndex = Math.floor(Math.random() * 10);
+            p.textureIndex = Math.floor(Math.random() * 9);
         }
         this.planets.push(p);
         return p;
