@@ -149,6 +149,8 @@ class GravitySimulation {
         this.noPlanetMergeMassLimit = false;
         this.disableMassDecay = false;
         this.disableWorldBoundary = false;
+        this.disablePlanetCollisions = false;
+        this.dynamicStars = false;
     }
 
     init() {
@@ -177,7 +179,8 @@ class GravitySimulation {
     addStar(x, y, mass, radius, color, isStatic = true, isInitialSun = false) {
         const s = {
             x: x, y: y, mass: mass, radius: radius, color: color,
-            isStatic: isStatic, isInitialSun: isInitialSun
+            isStatic: isStatic, isInitialSun: isInitialSun,
+            vx: 0, vy: 0, ax: 0, ay: 0
         };
         this.stars.push(s);
         return s;
@@ -322,6 +325,85 @@ class GravitySimulation {
         }
 
         return false;
+    }
+
+    findElementAt(x, y, maxDistance) {
+        let closestElement = null;
+        let closestDist = Infinity;
+        let elementType = null;
+
+        // Check generators
+        for (let i = 0; i < this.generators.length; i++) {
+            const gen = this.generators[i];
+            const dx = gen.x - x;
+            const dy = gen.y - y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const clickRadius = Math.max(25, maxDistance);
+            if (dist < clickRadius && dist < closestDist) {
+                closestDist = dist;
+                closestElement = gen;
+                elementType = 'generator';
+            }
+        }
+
+        // Check stars
+        for (let i = 0; i < this.stars.length; i++) {
+            const star = this.stars[i];
+            const dx = star.x - x;
+            const dy = star.y - y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const clickRadius = Math.max(star.radius, maxDistance);
+            if (dist < clickRadius && dist < closestDist) {
+                closestDist = dist;
+                closestElement = star;
+                elementType = 'star';
+            }
+        }
+
+        // Check black holes
+        for (let i = 0; i < this.blackHoles.length; i++) {
+            const bh = this.blackHoles[i];
+            const dx = bh.x - x;
+            const dy = bh.y - y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const clickRadius = Math.max(bh.radius, maxDistance);
+            if (dist < clickRadius && dist < closestDist) {
+                closestDist = dist;
+                closestElement = bh;
+                elementType = 'black-hole';
+            }
+        }
+
+        // Check white holes
+        for (let i = 0; i < this.whiteHoles.length; i++) {
+            const wh = this.whiteHoles[i];
+            const dx = wh.x - x;
+            const dy = wh.y - y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const clickRadius = Math.max(wh.radius, maxDistance);
+            if (dist < clickRadius && dist < closestDist) {
+                closestDist = dist;
+                closestElement = wh;
+                elementType = 'white-hole';
+            }
+        }
+
+        // Check planets (excluding debris)
+        for (let i = 0; i < this.planets.length; i++) {
+            const p = this.planets[i];
+            if (p.isDebris) continue;
+            const dx = p.x - x;
+            const dy = p.y - y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const clickRadius = Math.max(p.radius, maxDistance);
+            if (dist < clickRadius && dist < closestDist) {
+                closestDist = dist;
+                closestElement = p;
+                elementType = 'planet';
+            }
+        }
+
+        return closestElement;
     }
 
     spawnTarget() {
@@ -590,6 +672,55 @@ class GravitySimulation {
             }
         }
 
+        // Dynamic Stars update
+        if (this.dynamicStars) {
+            for (const star of this.stars) {
+                if (star.isDragged) continue;
+
+                let ax = 0;
+                let ay = 0;
+                // Calculate gravitational attraction from all planets
+                for (const p of this.planets) {
+                    if (p.isDead || p.isDebris) continue;
+                    const dx = p.x - star.x;
+                    const dy = p.y - star.y;
+                    const dSq = dx * dx + dy * dy;
+                    if (dSq > 0) {
+                        const dist = Math.sqrt(dSq);
+                        const accel = (this.G * p.mass) / dSq;
+                        ax += (accel * dx) / dist;
+                        ay += (accel * dy) / dist;
+                    }
+                }
+
+                // Attraction from black holes
+                for (const bh of this.blackHoles) {
+                    const dx = bh.x - star.x;
+                    const dy = bh.y - star.y;
+                    const dSq = dx * dx + dy * dy;
+                    if (dSq > 0) {
+                        const dist = Math.sqrt(dSq);
+                        const accel = (this.G * bh.mass) / dSq;
+                        ax += (accel * dx) / dist;
+                        ay += (accel * dy) / dist;
+                    }
+                }
+
+                if (star.vx === undefined) star.vx = 0;
+                if (star.vy === undefined) star.vy = 0;
+
+                star.vx += ax * this.dt;
+                star.vy += ay * this.dt;
+                star.x += star.vx * this.dt;
+                star.y += star.vy * this.dt;
+            }
+        } else {
+            for (const star of this.stars) {
+                star.vx = 0;
+                star.vy = 0;
+            }
+        }
+
         let nextFramePlanets = [];
         for (let i = 0; i < this.planets.length; i++) {
             const p = this.planets[i];
@@ -629,58 +760,62 @@ class GravitySimulation {
         }
 
         let finalPlanets = [];
-        let collidedIndices = new Set();
-        for (let i = 0; i < this.planets.length; i++) {
-            if (collidedIndices.has(i)) continue;
-            const p1 = this.planets[i];
-            if (p1.isDebris) { finalPlanets.push(p1); continue; }
-            const gx = Math.floor(p1.x / cellSize), gy = Math.floor(p1.y / cellSize);
-            let collided = false;
-            for (let dx = -1; dx <= 1 && !collided; dx++) {
-                for (let dy = -1; dy <= 1 && !collided; dy++) {
-                    const neighbors = collisionGrid.get(`${gx + dx},${gy + dy}`);
-                    if (!neighbors) continue;
-                    for (const p2 of neighbors) {
-                        if (p1 === p2 || p1.id >= p2.id || p2.isDebris) continue;
-                        const p2Idx = planetIndexMap.get(p2);
-                        if (p2Idx === undefined || collidedIndices.has(p2Idx)) continue;
-                        const distSq = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;
-                        if (distSq < (p1.radius + p2.radius) ** 2) {
-                            collidedIndices.add(i); collidedIndices.add(p2Idx);
-                            collided = true;
-                            if (this.callbacks.onCollision) this.callbacks.onCollision(p1, p2);
+        if (this.disablePlanetCollisions) {
+            finalPlanets = this.planets;
+        } else {
+            let collidedIndices = new Set();
+            for (let i = 0; i < this.planets.length; i++) {
+                if (collidedIndices.has(i)) continue;
+                const p1 = this.planets[i];
+                if (p1.isDebris) { finalPlanets.push(p1); continue; }
+                const gx = Math.floor(p1.x / cellSize), gy = Math.floor(p1.y / cellSize);
+                let collided = false;
+                for (let dx = -1; dx <= 1 && !collided; dx++) {
+                    for (let dy = -1; dy <= 1 && !collided; dy++) {
+                        const neighbors = collisionGrid.get(`${gx + dx},${gy + dy}`);
+                        if (!neighbors) continue;
+                        for (const p2 of neighbors) {
+                            if (p1 === p2 || p1.id >= p2.id || p2.isDebris) continue;
+                            const p2Idx = planetIndexMap.get(p2);
+                            if (p2Idx === undefined || collidedIndices.has(p2Idx)) continue;
+                            const distSq = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;
+                            if (distSq < (p1.radius + p2.radius) ** 2) {
+                                collidedIndices.add(i); collidedIndices.add(p2Idx);
+                                collided = true;
+                                if (this.callbacks.onCollision) this.callbacks.onCollision(p1, p2);
 
-                            const cX = (p1.x * p1.mass + p2.x * p2.mass) / (p1.mass + p2.mass);
-                            const cY = (p1.y * p1.mass + p2.y * p2.mass) / (p1.mass + p2.mass);
-                            const avgVx = (p1.vx * p1.mass + p2.vx * p2.mass) / (p1.mass + p2.mass);
-                            const avgVy = (p1.vy * p1.mass + p2.vy * p2.mass) / (p1.mass + p2.mass);
+                                const cX = (p1.x * p1.mass + p2.x * p2.mass) / (p1.mass + p2.mass);
+                                const cY = (p1.y * p1.mass + p2.y * p2.mass) / (p1.mass + p2.mass);
+                                const avgVx = (p1.vx * p1.mass + p2.vx * p2.mass) / (p1.mass + p2.mass);
+                                const avgVy = (p1.vy * p1.mass + p2.vy * p2.mass) / (p1.mass + p2.mass);
 
-                            if (this.collisionMode === 'explode') {
-                                for (let k = 0; k < this.debrisCount; k++) {
-                                    const ang = Math.random() * Math.PI * 2, spd = Math.random() * SIMULATION_CONFIG.DEBRIS.MAX_EXPLOSION_SPEED;
-                                    finalPlanets.push(new Planet(this.planetIdCounter++, cX, cY, avgVx + Math.cos(ang) * spd, avgVy + Math.sin(ang) * spd,
-                                        SIMULATION_CONFIG.DEBRIS.MASS, SIMULATION_CONFIG.DEBRIS.RADIUS, 'grey', true, SIMULATION_CONFIG.DEBRIS.LIFETIME));
+                                if (this.collisionMode === 'explode') {
+                                    for (let k = 0; k < this.debrisCount; k++) {
+                                        const ang = Math.random() * Math.PI * 2, spd = Math.random() * SIMULATION_CONFIG.DEBRIS.MAX_EXPLOSION_SPEED;
+                                        finalPlanets.push(new Planet(this.planetIdCounter++, cX, cY, avgVx + Math.cos(ang) * spd, avgVy + Math.sin(ang) * spd,
+                                            SIMULATION_CONFIG.DEBRIS.MASS, SIMULATION_CONFIG.DEBRIS.RADIUS, 'grey', true, SIMULATION_CONFIG.DEBRIS.LIFETIME));
+                                    }
+                                } else if (this.collisionMode === 'merge') {
+                                    // Merge logic with efficiency factor
+                                    let newMass = (p1.mass + p2.mass) * (SIMULATION_CONFIG.COLLISION.MERGE_EFFICIENCY || 1.0);
+                                    if (!this.noPlanetMergeMassLimit && newMass > this.mergeMaxMass) {
+                                        newMass = this.mergeMaxMass;
+                                    }
+                                    const newRadius = Math.pow(newMass, SIMULATION_CONFIG.PLANET.RADIUS_EXPONENT) * SIMULATION_CONFIG.PLANET.RADIUS_MULTIPLIER;
+                                    // Inherit visual properties from the dominant (more massive) planet
+                                    const dominant = (p1.mass > p2.mass) ? p1 : p2;
+                                    const pNew = new Planet(this.planetIdCounter++, cX, cY, avgVx, avgVy, newMass, newRadius, dominant.color);
+                                    pNew.textureIndex = dominant.textureIndex;
+                                    pNew.rotation = dominant.rotation;
+                                    pNew.rotationSpeed = dominant.rotationSpeed;
+                                    finalPlanets.push(pNew);
                                 }
-                            } else if (this.collisionMode === 'merge') {
-                                // Merge logic with efficiency factor
-                                let newMass = (p1.mass + p2.mass) * (SIMULATION_CONFIG.COLLISION.MERGE_EFFICIENCY || 1.0);
-                                if (!this.noPlanetMergeMassLimit && newMass > this.mergeMaxMass) {
-                                    newMass = this.mergeMaxMass;
-                                }
-                                const newRadius = Math.pow(newMass, SIMULATION_CONFIG.PLANET.RADIUS_EXPONENT) * SIMULATION_CONFIG.PLANET.RADIUS_MULTIPLIER;
-                                // Inherit visual properties from the dominant (more massive) planet
-                                const dominant = (p1.mass > p2.mass) ? p1 : p2;
-                                const pNew = new Planet(this.planetIdCounter++, cX, cY, avgVx, avgVy, newMass, newRadius, dominant.color);
-                                pNew.textureIndex = dominant.textureIndex;
-                                pNew.rotation = dominant.rotation;
-                                pNew.rotationSpeed = dominant.rotationSpeed;
-                                finalPlanets.push(pNew);
                             }
                         }
                     }
                 }
+                if (!collided) finalPlanets.push(p1);
             }
-            if (!collided) finalPlanets.push(p1);
         }
         this.planets = finalPlanets;
 

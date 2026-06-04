@@ -101,6 +101,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const disableWorldBoundaryCheckbox = document.getElementById('disableWorldBoundary');
     const noPlanetMergeMassLimitCheckbox = document.getElementById('noPlanetMergeMassLimit');
     const disableMassDecayCheckbox = document.getElementById('disableMassDecay');
+    const disablePlanetCollisionsCheckbox = document.getElementById('disablePlanetCollisions');
+    const dynamicStarsCheckbox = document.getElementById('dynamicStars');
 
     // --- Simulation Instance ---
     const sim = new GravitySimulation();
@@ -114,6 +116,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (disableMassDecayCheckbox) {
         sim.disableMassDecay = disableMassDecayCheckbox.checked;
+    }
+    if (disablePlanetCollisionsCheckbox) {
+        sim.disablePlanetCollisions = disablePlanetCollisionsCheckbox.checked;
+    }
+    if (dynamicStarsCheckbox) {
+        sim.dynamicStars = dynamicStarsCheckbox.checked;
     }
     const checkedCollisionMode = document.querySelector('input[name="collisionMode"]:checked');
     if (checkedCollisionMode) {
@@ -249,6 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let generatorLaunchSpeed = generatorLaunchSpeedRange ? parseInt(generatorLaunchSpeedRange.value) : 300;
     let generatorLaunchAngle = generatorLaunchAngleRange ? parseInt(generatorLaunchAngleRange.value) : 0;
     let generatorLimit = generatorLimitInput ? parseInt(generatorLimitInput.value) : 0;
+    let draggedElement = null;
     let initialPredictedPath = [];
     let lastPredictionTime = 0;
 
@@ -1011,26 +1020,43 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targetIsControl) return;
         e.preventDefault();
         isPointerDown = true;
+        const pos = { x: e.clientX, y: e.clientY };
+        
         if (e.pointerType === 'touch') {
             touchPoints.set(e.pointerId, { x: e.clientX, y: e.clientY });
             if (touchPoints.size === 1) {
                 isPanning = isPinching = false;
-                startDragPos = { x: e.clientX, y: e.clientY };
-                currentPointerPos = { x: e.clientX, y: e.clientY };
+                startDragPos = { ...pos };
+                currentPointerPos = { ...pos };
                 didPointerMove = false;
-                isDragging = creationMode === 'planet';
-                if (isDragging) {
-                    currentPlanetMass = Math.random() * (200 - 50) + 50;
-                    currentPlanetRadius = calculateRadiusFromMass(currentPlanetMass);
-                    speedLabel.style.display = 'block';
-                    updateSpeedLabel();
-                    initialPredictedPath = [];
-                    lastPredictionTime = Date.now();
-                    if (showPrediction) calculateInitialPrediction();
+                
+                if (creationMode === 'move') {
+                    const worldPos = screenToWorld(startDragPos.x, startDragPos.y);
+                    const clickRadius = 40 / scale;
+                    draggedElement = sim.findElementAt(worldPos.x, worldPos.y, clickRadius);
+                    if (draggedElement) {
+                        isDragging = true;
+                        draggedElement.isDragged = true;
+                        if (draggedElement.vx !== undefined) { draggedElement.vx = 0; draggedElement.vy = 0; }
+                        canvas.style.cursor = 'grabbing';
+                    }
+                } else {
+                    isDragging = creationMode === 'planet';
+                    if (isDragging) {
+                        currentPlanetMass = Math.random() * (200 - 50) + 50;
+                        currentPlanetRadius = calculateRadiusFromMass(currentPlanetMass);
+                        speedLabel.style.display = 'block';
+                        updateSpeedLabel();
+                        initialPredictedPath = [];
+                        lastPredictionTime = Date.now();
+                        if (showPrediction) calculateInitialPrediction();
+                    }
+                    canvas.style.cursor = 'crosshair';
                 }
-                canvas.style.cursor = 'crosshair';
             } else if (touchPoints.size === 2) {
                 isDragging = false;
+                if (draggedElement) draggedElement.isDragged = false;
+                draggedElement = null;
                 speedLabel.style.display = 'none';
                 initialPredictedPath = [];
                 isPanning = true;
@@ -1043,26 +1069,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 canvas.style.cursor = 'move';
             }
         } else {
-            startDragPos = { x: e.clientX, y: e.clientY };
-            currentPointerPos = { x: e.clientX, y: e.clientY };
+            startDragPos = { ...pos };
+            currentPointerPos = { ...pos };
             didPointerMove = false;
             if (e.button === 0) {
                 isPanning = isPinching = false;
-                isDragging = creationMode === 'planet';
-                if (isDragging) {
-                    currentPlanetMass = Math.random() * (200 - 50) + 50;
-                    currentPlanetRadius = calculateRadiusFromMass(currentPlanetMass);
-                    speedLabel.style.display = 'block';
-                    updateSpeedLabel();
-                    initialPredictedPath = [];
-                    lastPredictionTime = Date.now();
-                    if (showPrediction) calculateInitialPrediction();
+                
+                if (creationMode === 'move') {
+                    const worldPos = screenToWorld(startDragPos.x, startDragPos.y);
+                    const clickRadius = 40 / scale;
+                    draggedElement = sim.findElementAt(worldPos.x, worldPos.y, clickRadius);
+                    if (draggedElement) {
+                        isDragging = true;
+                        draggedElement.isDragged = true;
+                        if (draggedElement.vx !== undefined) { draggedElement.vx = 0; draggedElement.vy = 0; }
+                        canvas.style.cursor = 'grabbing';
+                    }
+                } else {
+                    isDragging = creationMode === 'planet';
+                    if (isDragging) {
+                        currentPlanetMass = Math.random() * (200 - 50) + 50;
+                        currentPlanetRadius = calculateRadiusFromMass(currentPlanetMass);
+                        speedLabel.style.display = 'block';
+                        updateSpeedLabel();
+                        initialPredictedPath = [];
+                        lastPredictionTime = Date.now();
+                        if (showPrediction) calculateInitialPrediction();
+                    }
+                    canvas.style.cursor = 'crosshair';
                 }
-                canvas.style.cursor = 'crosshair';
             } else if (e.button === 1 || e.button === 2) {
                 isPanning = true; isDragging = false; isPinching = false;
+                if (draggedElement) draggedElement.isDragged = false;
+                draggedElement = null;
                 if (isTracking) { isTracking = false; trackingModeCheckbox.checked = false; trackedPlanetSelect.classList.add('hidden'); }
-                lastPanPos = { x: e.clientX, y: e.clientY };
+                lastPanPos = { ...pos };
                 canvas.style.cursor = 'move';
             }
         }
@@ -1077,6 +1118,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!didPointerMove) {
             if (((startDragPos.x - e.clientX) ** 2 + (startDragPos.y - e.clientY) ** 2) > 10) didPointerMove = true;
         }
+        
+        if (creationMode === 'move' && draggedElement) {
+            const worldPos = screenToWorld(e.clientX, e.clientY);
+            draggedElement.x = worldPos.x;
+            draggedElement.y = worldPos.y;
+            if (draggedElement.trail) draggedElement.trail = [];
+            if (draggedElement.vx !== undefined) { draggedElement.vx = 0; draggedElement.vy = 0; }
+            return;
+        }
+        
         if (e.pointerType === 'touch') {
             if (touchPoints.has(e.pointerId)) { touchPoints.set(e.pointerId, { x: e.clientX, y: e.clientY }); }
             if (isPinching && touchPoints.size === 2) {
@@ -1118,13 +1169,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function handlePointerUp(e) {
         if (!isPointerDown) return;
         e.preventDefault();
+        if (draggedElement) {
+            draggedElement.isDragged = false;
+            draggedElement = null;
+        }
         if (touchPoints.has(e.pointerId)) {
             touchPoints.delete(e.pointerId);
-            if (touchPoints.size < 2) { isPinching = isPanning = false; initialPinchInfo.distance = 0; if (touchPoints.size === 1) canvas.style.cursor = 'crosshair'; }
+            if (touchPoints.size < 2) { isPinching = isPanning = false; initialPinchInfo.distance = 0; if (touchPoints.size === 1) canvas.style.cursor = creationMode === 'move' ? 'move' : 'crosshair'; }
             if (touchPoints.size === 0) { isPointerDown = false; finalizePlanetCreation({ x: e.clientX, y: e.clientY }); }
         } else {
             isPointerDown = false;
-            if (isPanning) { isPanning = false; canvas.style.cursor = 'crosshair'; }
+            if (isPanning) { isPanning = false; canvas.style.cursor = creationMode === 'move' ? 'move' : 'crosshair'; }
             else { finalizePlanetCreation({ x: e.clientX, y: e.clientY }); }
         }
         if (!isPointerDown) {
@@ -1132,7 +1187,7 @@ document.addEventListener('DOMContentLoaded', () => {
             speedLabel.style.display = 'none';
             initialPredictedPath = [];
             touchPoints.clear();
-            canvas.style.cursor = 'crosshair';
+            canvas.style.cursor = creationMode === 'move' ? 'move' : 'crosshair';
             initialPinchInfo.distance = 0;
             didPointerMove = false;
         }
@@ -1329,7 +1384,7 @@ document.addEventListener('DOMContentLoaded', () => {
         generatorOptionsDiv.classList.toggle('hidden', creationMode !== 'generator');
         isDragging = isPanning = isPinching = false;
         speedLabel.style.display = 'none';
-        canvas.style.cursor = 'crosshair';
+        canvas.style.cursor = creationMode === 'move' ? 'move' : 'crosshair';
     }));
     collisionModeRadios.forEach(radio => radio.addEventListener('change', (e) => {
         sim.collisionMode = e.target.value;
@@ -1350,6 +1405,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (disableMassDecayCheckbox) {
         disableMassDecayCheckbox.addEventListener('change', (e) => {
             sim.disableMassDecay = e.target.checked;
+        });
+    }
+    if (disablePlanetCollisionsCheckbox) {
+        disablePlanetCollisionsCheckbox.addEventListener('change', (e) => {
+            sim.disablePlanetCollisions = e.target.checked;
+        });
+    }
+    if (dynamicStarsCheckbox) {
+        dynamicStarsCheckbox.addEventListener('change', (e) => {
+            sim.dynamicStars = e.target.checked;
         });
     }
     starMassRange.addEventListener('input', (e) => { nextStarMass = parseInt(e.target.value); starMassValueSpan.textContent = nextStarMass; });
