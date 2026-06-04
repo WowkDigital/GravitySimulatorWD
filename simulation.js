@@ -216,6 +216,14 @@ class GravitySimulation {
         this.generators = [];
     }
 
+    clearStars() {
+        this.stars = [];
+    }
+
+    clearPlanets() {
+        this.planets = [];
+    }
+
     removeElementAt(x, y, maxDistance) {
         let closestElement = null;
         let closestDist = Infinity;

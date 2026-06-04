@@ -65,6 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const debrisIncrementBtn = document.getElementById('debrisIncrement');
     const resetButton = document.getElementById('resetButton');
     const pauseButton = document.getElementById('pauseButton');
+    const clearPlanetsButton = document.getElementById('clearPlanetsButton');
+    const clearStarsButton = document.getElementById('clearStarsButton');
     const infoElement = document.getElementById('info');
     const showForceVectorsCheckbox = document.getElementById('showForceVectors');
     const showEnergyPredictionCheckbox = document.getElementById('showEnergyPrediction');
@@ -1398,6 +1400,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     clearGeneratorsButton.addEventListener('click', () => sim.clearGenerators());
+    if (clearPlanetsButton) {
+        clearPlanetsButton.addEventListener('click', () => {
+            sim.clearPlanets();
+            planetToTrack = null;
+            updateTrackedPlanetSelect();
+        });
+    }
+    if (clearStarsButton) {
+        clearStarsButton.addEventListener('click', () => {
+            sim.clearStars();
+        });
+    }
     debrisDecrementBtn.addEventListener('click', () => { sim.debrisCount = Math.max(0, sim.debrisCount - 10); debrisCountInput.value = sim.debrisCount; });
     debrisIncrementBtn.addEventListener('click', () => { sim.debrisCount = Math.min(100, sim.debrisCount + 10); debrisCountInput.value = sim.debrisCount; });
     debrisCountInput.addEventListener('input', (e) => { sim.debrisCount = Math.max(0, Math.min(100, parseInt(e.target.value) || 0)); });
