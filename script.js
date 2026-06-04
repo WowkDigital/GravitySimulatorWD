@@ -87,9 +87,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const zoomAttenuationValueSpan = document.getElementById('zoomAttenuationValue');
     const toggleProximityHissCheckbox = document.getElementById('toggleProximityHiss');
     const collisionModeRadios = document.querySelectorAll('input[name="collisionMode"]');
+    const mergeOptionsDiv = document.getElementById('mergeOptions');
+    const disableWorldBoundaryCheckbox = document.getElementById('disableWorldBoundary');
+    const noPlanetMergeMassLimitCheckbox = document.getElementById('noPlanetMergeMassLimit');
+    const disableMassDecayCheckbox = document.getElementById('disableMassDecay');
 
     // --- Simulation Instance ---
     const sim = new GravitySimulation();
+
+    // Sync initial states from HTML to Simulation instance
+    if (disableWorldBoundaryCheckbox) {
+        sim.disableWorldBoundary = disableWorldBoundaryCheckbox.checked;
+    }
+    if (noPlanetMergeMassLimitCheckbox) {
+        sim.noPlanetMergeMassLimit = noPlanetMergeMassLimitCheckbox.checked;
+    }
+    if (disableMassDecayCheckbox) {
+        sim.disableMassDecay = disableMassDecayCheckbox.checked;
+    }
+    const checkedCollisionMode = document.querySelector('input[name="collisionMode"]:checked');
+    if (checkedCollisionMode) {
+        sim.collisionMode = checkedCollisionMode.value;
+        if (mergeOptionsDiv) {
+            mergeOptionsDiv.classList.toggle('hidden', sim.collisionMode !== 'merge');
+        }
+    }
 
     // --- Audio Setup (External Class) ---
     let audioManager = null;
@@ -1226,7 +1248,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }));
     collisionModeRadios.forEach(radio => radio.addEventListener('change', (e) => {
         sim.collisionMode = e.target.value;
+        if (mergeOptionsDiv) {
+            mergeOptionsDiv.classList.toggle('hidden', sim.collisionMode !== 'merge');
+        }
     }));
+    if (disableWorldBoundaryCheckbox) {
+        disableWorldBoundaryCheckbox.addEventListener('change', (e) => {
+            sim.disableWorldBoundary = e.target.checked;
+        });
+    }
+    if (noPlanetMergeMassLimitCheckbox) {
+        noPlanetMergeMassLimitCheckbox.addEventListener('change', (e) => {
+            sim.noPlanetMergeMassLimit = e.target.checked;
+        });
+    }
+    if (disableMassDecayCheckbox) {
+        disableMassDecayCheckbox.addEventListener('change', (e) => {
+            sim.disableMassDecay = e.target.checked;
+        });
+    }
     starMassRange.addEventListener('input', (e) => { nextStarMass = parseInt(e.target.value); starMassValueSpan.textContent = nextStarMass; });
     gConstantRange.addEventListener('input', (e) => {
         sim.setGravityConstant(parseInt(e.target.value));

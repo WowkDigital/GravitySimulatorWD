@@ -143,6 +143,9 @@ class GravitySimulation {
         this.collisionMode = SIMULATION_CONFIG.COLLISION.MODE;
         this.mergeMaxMass = SIMULATION_CONFIG.COLLISION.MERGE_MAX_MASS;
         this.mergeMassDecay = SIMULATION_CONFIG.COLLISION.MERGE_MASS_DECAY;
+        this.noPlanetMergeMassLimit = false;
+        this.disableMassDecay = false;
+        this.disableWorldBoundary = false;
     }
 
     init() {
@@ -574,7 +577,7 @@ class GravitySimulation {
             // Mass Decay for Merged/Huge Planets
             // Only if merge mode is active, or user requested it generally. 
             // "mass should slowly decay over time"
-            if (this.collisionMode === 'merge' && !p.isDebris && p.mass > 100) {
+            if (!this.disableMassDecay && this.collisionMode === 'merge' && !p.isDebris && p.mass > 100) {
                 p.mass -= this.mergeMassDecay * this.dt;
                 if (p.mass < 50) p.mass = 50; // clamp min mass
                 // Update radius
@@ -582,7 +585,7 @@ class GravitySimulation {
             }
 
             if (p.update(this.dt, p.tempAx, p.tempAy)) {
-                if (p.x * p.x + p.y * p.y < SIMULATION_CONFIG.MAX_DISTANCE_FROM_CENTER ** 2) {
+                if (this.disableWorldBoundary || (p.x * p.x + p.y * p.y < SIMULATION_CONFIG.MAX_DISTANCE_FROM_CENTER ** 2)) {
                     if (!p.isDebris) p.isBound = (this.calculateTotalEnergy(p) < 0);
                     nextFramePlanets.push(p);
                 }
@@ -640,7 +643,9 @@ class GravitySimulation {
                             } else if (this.collisionMode === 'merge') {
                                 // Merge logic with efficiency factor
                                 let newMass = (p1.mass + p2.mass) * (SIMULATION_CONFIG.COLLISION.MERGE_EFFICIENCY || 1.0);
-                                if (newMass > this.mergeMaxMass) newMass = this.mergeMaxMass;
+                                if (!this.noPlanetMergeMassLimit && newMass > this.mergeMaxMass) {
+                                    newMass = this.mergeMaxMass;
+                                }
                                 const newRadius = Math.pow(newMass, SIMULATION_CONFIG.PLANET.RADIUS_EXPONENT) * SIMULATION_CONFIG.PLANET.RADIUS_MULTIPLIER;
                                 // Inherit visual properties from the dominant (more massive) planet
                                 const dominant = (p1.mass > p2.mass) ? p1 : p2;

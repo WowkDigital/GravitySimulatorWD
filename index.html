@@ -88,6 +88,7 @@
 
                 <div class="control-group">
                     <label><input type="checkbox" id="toggleContainment" checked> Containment Field</label>
+                    <label><input type="checkbox" id="disableWorldBoundary"> Disable world boundary</label>
                 </div>
 
                 <div class="control-group">
@@ -96,6 +97,11 @@
                         <label><input type="radio" name="collisionMode" value="explode" checked> Explosion</label>
                         <label><input type="radio" name="collisionMode" value="merge"> Merging</label>
                     </div>
+                </div>
+
+                <div id="mergeOptions" class="control-group hidden">
+                    <label><input type="checkbox" id="noPlanetMergeMassLimit"> Remove merge mass limit</label>
+                    <label><input type="checkbox" id="disableMassDecay"> Disable mass decay</label>
                 </div>
 
                 <div class="control-group" style="flex-direction: row; gap: 10px;">
