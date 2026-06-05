@@ -90,6 +90,7 @@ class Planet {
         this.textureIndex = -1; // -1 means no texture or random assignment needed by renderer
         this.rotation = Math.random() * Math.PI * 2;
         this.rotationSpeed = (Math.random() - 0.5) * 0.02;
+        this.isComet = false;
     }
 
     update(dt, ax, ay) {
@@ -898,6 +899,7 @@ class GravitySimulation {
                                     pNew.textureIndex = dominant.textureIndex;
                                     pNew.rotation = dominant.rotation;
                                     pNew.rotationSpeed = dominant.rotationSpeed;
+                                    pNew.isComet = dominant.isComet || false;
                                     finalPlanets.push(pNew);
                                 }
                             }

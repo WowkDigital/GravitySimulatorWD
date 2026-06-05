@@ -369,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Planet Particles Drawer ---
     function updateAndDrawPlanetParticles(ctx) {
-        if (!showPlanetParticles) return;
+        if (planetParticles.length === 0) return;
         
         const dt = sim.dt;
         ctx.save();
@@ -385,7 +385,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 activeParticles.push(pt);
                 const progress = pt.life / pt.maxLife;
                 const currentAlpha = pt.alpha * progress;
-                const currentSize = pt.size * (0.3 + 0.7 * progress);
+                
+                let currentSize;
+                if (pt.type === 'dust') {
+                    currentSize = pt.size * (2.5 - 1.5 * progress);
+                } else if (pt.type === 'ion') {
+                    currentSize = pt.size * (0.5 + 0.5 * progress);
+                } else {
+                    currentSize = pt.size * (0.3 + 0.7 * progress);
+                }
                 
                 try {
                     ctx.fillStyle = pt.color.replace('hsl', 'hsla').replace(')', `, ${currentAlpha})`);
@@ -424,7 +432,76 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.restore();
         }
 
-        if (p.isDebris) {
+        if (p.isComet) {
+            // Calculate activity for visual scaling
+            let totalActivity = 0;
+            for (const star of sim.stars) {
+                const dx = star.x - p.x;
+                const dy = star.y - p.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const activeRange = 3000;
+                if (dist < activeRange) {
+                    const factor = (activeRange - dist) / activeRange;
+                    totalActivity += factor * factor;
+                }
+            }
+            totalActivity = Math.min(2.5, totalActivity);
+
+            // Draw Coma (Fuzzy gas envelope around nucleus)
+            const comaRadius = p.radius * (1.5 + totalActivity * 2.0);
+            if (comaRadius > 0) {
+                const gradient = ctx.createRadialGradient(p.x, p.y, p.radius * 0.2, p.x, p.y, comaRadius);
+                gradient.addColorStop(0, 'rgba(180, 240, 255, 0.8)'); // Bright ice blue
+                gradient.addColorStop(0.2, 'rgba(100, 200, 255, 0.4)'); // cyan glow
+                gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, comaRadius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Draw Comet Nucleus (irregular rocky ice ball)
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rotation);
+            
+            if (sim.jp2Mode && jp2FaceTexture.isLoaded) {
+                ctx.beginPath();
+                ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
+                ctx.clip();
+                ctx.drawImage(jp2FaceTexture, -p.radius, -p.radius, p.radius * 2, p.radius * 2);
+            } else {
+                ctx.beginPath();
+                const points = 8;
+                for (let i = 0; i < points; i++) {
+                    const angle = (i / points) * Math.PI * 2;
+                    const noise = 0.85 + 0.15 * Math.sin(angle * 3 + p.id);
+                    const r = p.radius * noise;
+                    const x = Math.cos(angle) * r;
+                    const y = Math.sin(angle) * r;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                
+                const grad = ctx.createRadialGradient(-p.radius * 0.2, -p.radius * 0.2, p.radius * 0.1, 0, 0, p.radius);
+                grad.addColorStop(0, '#e0f7fa'); // frosty light cyan
+                grad.addColorStop(0.5, '#78909c'); // slate grey
+                grad.addColorStop(1, '#37474f'); // dark charcoal
+                
+                ctx.fillStyle = grad;
+                ctx.fill();
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.lineWidth = 1 / scale;
+                ctx.stroke();
+            }
+            ctx.restore();
+        } else if (p.isDebris) {
             ctx.fillStyle = p.color;
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
@@ -552,7 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function calculateInitialPrediction() {
         initialPredictedPath = [];
-        if (creationMode !== 'planet' || !isDragging || !didPointerMove || !showPrediction) return;
+        if ((creationMode !== 'planet' && creationMode !== 'comet') || !isDragging || !didPointerMove || !showPrediction) return;
         const worldStartPos = screenToWorld(startDragPos.x, startDragPos.y);
         const screenDx = (startDragPos.x - currentPointerPos.x);
         const screenDy = (startDragPos.y - currentPointerPos.y);
@@ -1021,41 +1098,139 @@ document.addEventListener('DOMContentLoaded', () => {
 
         sim.update(now);
         
-        // Spawn planet particles
-        if (showPlanetParticles && !isPaused) {
+        // Spawn planet & comet particles
+        if (!isPaused) {
             for (const p of sim.planets) {
                 if (p.isDebris) continue;
-                if (planetParticles.length >= 1000) break;
                 
-                if (Math.random() < 0.25) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const dist = p.radius * (1.0 + Math.random() * 0.25);
-                    const px = p.x + Math.cos(angle) * dist;
-                    const py = p.y + Math.sin(angle) * dist;
+                if (p.isComet) {
+                    if (planetParticles.length >= 2500) continue;
                     
-                    const tangentX = -Math.sin(angle);
-                    const tangentY = Math.cos(angle);
-                    const orbitSpeed = (15 + Math.random() * 30);
-                    const driftSpeed = (5 + Math.random() * 10);
+                    // Comet particle emission logic
+                    let totalActivity = 0;
+                    let dominantStar = null;
+                    let minStarDist = Infinity;
                     
-                    const pvx = p.vx + tangentX * orbitSpeed + Math.cos(angle) * driftSpeed;
-                    const pvy = p.vy + tangentY * orbitSpeed + Math.sin(angle) * driftSpeed;
+                    for (const star of sim.stars) {
+                        const dx = star.x - p.x;
+                        const dy = star.y - p.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < minStarDist) {
+                            minStarDist = dist;
+                            dominantStar = star;
+                        }
+                        
+                        const activeRange = 3000;
+                        if (dist < activeRange) {
+                            const factor = (activeRange - dist) / activeRange;
+                            totalActivity += factor * factor;
+                        }
+                    }
                     
-                    // Golden yellow halo particles in JP2 Mode, otherwise matched planet colors
-                    const baseColor = sim.jp2Mode ? 'hsl(45, 100%, 65%)' : (p.color || 'hsl(180, 50%, 50%)');
-                    const life = 0.8 + Math.random() * 1.2;
+                    if (totalActivity > 0 && dominantStar) {
+                        const dirX = p.x - dominantStar.x;
+                        const dirY = p.y - dominantStar.y;
+                        const dirDist = Math.sqrt(dirX * dirX + dirY * dirY);
+                        if (dirDist > 0) {
+                            const ux = dirX / dirDist;
+                            const uy = dirY / dirDist;
+                            
+                            // 1. Gas/Ion tail (straight, blue, fast)
+                            const gasParticlesCount = Math.floor(totalActivity * 4) + (Math.random() < (totalActivity * 4) % 1 ? 1 : 0);
+                            for (let g = 0; g < gasParticlesCount; g++) {
+                                const offsetAngle = Math.random() * Math.PI * 2;
+                                const offsetDist = Math.random() * p.radius;
+                                const px = p.x + Math.cos(offsetAngle) * offsetDist;
+                                const py = p.y + Math.sin(offsetAngle) * offsetDist;
+                                
+                                const gasSpeed = 250 + Math.random() * 150;
+                                const spread = 30;
+                                const pvx = p.vx + ux * gasSpeed + (Math.random() - 0.5) * spread;
+                                const pvy = p.vy + uy * gasSpeed + (Math.random() - 0.5) * spread;
+                                
+                                const life = 0.4 + Math.random() * 0.4;
+                                const hue = 190 + Math.random() * 20;
+                                
+                                planetParticles.push({
+                                    x: px,
+                                    y: py,
+                                    vx: pvx,
+                                    vy: pvy,
+                                    color: `hsl(${hue}, 100%, 75%)`,
+                                    alpha: 0.8 + Math.random() * 0.2,
+                                    size: 1.5 + Math.random() * 1.5,
+                                    life: life,
+                                    maxLife: life,
+                                    type: 'ion'
+                                });
+                            }
+                            
+                            // 2. Dust tail (curved, white/yellow, slower, wider spread)
+                            const dustParticlesCount = Math.floor(totalActivity * 5) + (Math.random() < (totalActivity * 5) % 1 ? 1 : 0);
+                            for (let d = 0; d < dustParticlesCount; d++) {
+                                const offsetAngle = Math.random() * Math.PI * 2;
+                                const offsetDist = Math.random() * p.radius;
+                                const px = p.x + Math.cos(offsetAngle) * offsetDist;
+                                const py = p.y + Math.sin(offsetAngle) * offsetDist;
+                                
+                                const dustSpeed = 40 + Math.random() * 60;
+                                const spreadX = (Math.random() - 0.5) * 80;
+                                const spreadY = (Math.random() - 0.5) * 80;
+                                
+                                const pvx = p.vx + ux * dustSpeed + spreadX;
+                                const pvy = p.vy + uy * dustSpeed + spreadY;
+                                
+                                const life = 1.2 + Math.random() * 1.2;
+                                const hue = 40 + Math.random() * 15;
+                                const sat = 10 + Math.random() * 20;
+                                
+                                planetParticles.push({
+                                    x: px,
+                                    y: py,
+                                    vx: pvx,
+                                    vy: pvy,
+                                    color: `hsl(${hue}, ${sat}%, 85%)`,
+                                    alpha: 0.5 + Math.random() * 0.3,
+                                    size: 2.0 + Math.random() * 2.0,
+                                    life: life,
+                                    maxLife: life,
+                                    type: 'dust'
+                                });
+                            }
+                        }
+                    }
+                } else if (showPlanetParticles) {
+                    if (planetParticles.length >= 2500) continue;
                     
-                    planetParticles.push({
-                        x: px,
-                        y: py,
-                        vx: pvx,
-                        vy: pvy,
-                        color: baseColor,
-                        alpha: 0.7 + Math.random() * 0.3,
-                        size: 1.0 + Math.random() * 1.5,
-                        life: life,
-                        maxLife: life
-                    });
+                    if (Math.random() < 0.25) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const dist = p.radius * (1.0 + Math.random() * 0.25);
+                        const px = p.x + Math.cos(angle) * dist;
+                        const py = p.y + Math.sin(angle) * dist;
+                        
+                        const tangentX = -Math.sin(angle);
+                        const tangentY = Math.cos(angle);
+                        const orbitSpeed = (15 + Math.random() * 30);
+                        const driftSpeed = (5 + Math.random() * 10);
+                        
+                        const pvx = p.vx + tangentX * orbitSpeed + Math.cos(angle) * driftSpeed;
+                        const pvy = p.vy + tangentY * orbitSpeed + Math.sin(angle) * driftSpeed;
+                        
+                        const baseColor = sim.jp2Mode ? 'hsl(45, 100%, 65%)' : (p.color || 'hsl(180, 50%, 50%)');
+                        const life = 0.8 + Math.random() * 1.2;
+                        
+                        planetParticles.push({
+                            x: px,
+                            y: py,
+                            vx: pvx,
+                            vy: pvy,
+                            color: baseColor,
+                            alpha: 0.7 + Math.random() * 0.3,
+                            size: 1.0 + Math.random() * 1.5,
+                            life: life,
+                            maxLife: life
+                        });
+                    }
                 }
             }
         }
@@ -1169,9 +1344,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         canvas.style.cursor = 'grabbing';
                     }
                 } else {
-                    isDragging = creationMode === 'planet';
+                    isDragging = (creationMode === 'planet' || creationMode === 'comet');
                     if (isDragging) {
-                        currentPlanetMass = Math.random() * (200 - 50) + 50;
+                        currentPlanetMass = creationMode === 'comet' ? (Math.random() * (120 - 40) + 40) : (Math.random() * (200 - 50) + 50);
                         currentPlanetRadius = calculateRadiusFromMass(currentPlanetMass);
                         speedLabel.style.display = 'block';
                         updateSpeedLabel();
@@ -1214,9 +1389,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         canvas.style.cursor = 'grabbing';
                     }
                 } else {
-                    isDragging = creationMode === 'planet';
+                    isDragging = (creationMode === 'planet' || creationMode === 'comet');
                     if (isDragging) {
-                        currentPlanetMass = Math.random() * (200 - 50) + 50;
+                        currentPlanetMass = creationMode === 'comet' ? (Math.random() * (120 - 40) + 40) : (Math.random() * (200 - 50) + 50);
                         currentPlanetRadius = calculateRadiusFromMass(currentPlanetMass);
                         speedLabel.style.display = 'block';
                         updateSpeedLabel();
@@ -1325,7 +1500,7 @@ document.addEventListener('DOMContentLoaded', () => {
         speedLabel.style.display = 'none';
         initialPredictedPath = [];
 
-        if (creationMode === 'planet') {
+        if (creationMode === 'planet' || creationMode === 'comet') {
             // Handle click-to-track if no drag
             if (!didPointerMove) {
                 const worldClickPos = screenToWorld(endScreenPos.x, endScreenPos.y);
@@ -1354,7 +1529,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const vy = screenDy * VIEW_CONFIG.VELOCITY_SCALE;
             if (didPointerMove || Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1) {
                 const worldStartPos = screenToWorld(startDragPos.x, startDragPos.y);
-                sim.addPlanet(worldStartPos.x, worldStartPos.y, vx, vy, currentPlanetMass, currentPlanetRadius, `hsl(${Math.random() * 360}, 70%, 70%)`);
+                if (creationMode === 'comet') {
+                    const comet = sim.addPlanet(worldStartPos.x, worldStartPos.y, vx, vy, currentPlanetMass, currentPlanetRadius, 'hsl(180, 80%, 75%)');
+                    comet.isComet = true;
+                } else {
+                    sim.addPlanet(worldStartPos.x, worldStartPos.y, vx, vy, currentPlanetMass, currentPlanetRadius, `hsl(${Math.random() * 360}, 70%, 70%)`);
+                }
                 if (toggleSfxCheckbox.checked) playLaunchSynth();
             }
         } else if (creationMode === 'generator') {
@@ -1401,7 +1581,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function drawPreviewVectorLines(ctx) {
-        if (!isDragging || creationMode !== 'planet' || !didPointerMove) return;
+        if (!isDragging || (creationMode !== 'planet' && creationMode !== 'comet') || !didPointerMove) return;
         const worldStart = screenToWorld(startDragPos.x, startDragPos.y);
         const worldCurrent = screenToWorld(currentPointerPos.x, currentPointerPos.y);
         const worldVelX = (startDragPos.x - currentPointerPos.x) * VIEW_CONFIG.VELOCITY_SCALE;
@@ -1426,7 +1606,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Helpers ---
     function updateSpeedLabel() {
-        if (!isDragging || creationMode !== 'planet') return;
+        if (!isDragging || (creationMode !== 'planet' && creationMode !== 'comet')) return;
         const dx = startDragPos.x - currentPointerPos.x;
         const dy = startDragPos.y - currentPointerPos.y;
         const speed = Math.sqrt(dx * dx + dy * dy) * VIEW_CONFIG.VELOCITY_SCALE;
@@ -1496,7 +1676,7 @@ document.addEventListener('DOMContentLoaded', () => {
         offsetX = mousePos.x - worldPosBefore.x * newScale;
         offsetY = mousePos.y - worldPosBefore.y * newScale;
         scale = newScale;
-        if (isDragging && creationMode === 'planet' && showPrediction) calculateInitialPrediction();
+        if (isDragging && (creationMode === 'planet' || creationMode === 'comet') && showPrediction) calculateInitialPrediction();
     }, { passive: false });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     canvas.addEventListener('pointerdown', handlePointerDown);
